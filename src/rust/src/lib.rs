@@ -7,7 +7,7 @@ type NapiCallbackInfo = *mut c_void;
 type NapiStatus = i32;
 
 const NAPI_OK: NapiStatus = 0;
-const ROUNDTRIP: &[u8] = b"roundtrip\0";
+const ISBUFFER: &[u8] = b"isBuffer\0";
 
 unsafe extern "C" {
     fn napi_create_function(
@@ -34,9 +34,21 @@ unsafe extern "C" {
         this_arg: *mut NapiValue,
         data: *mut *mut c_void,
     ) -> NapiStatus;
+    fn napi_is_buffer(
+      env: NapiEnv,
+      value: NapiValue,
+      result: *mut bool,
+  ) -> NapiStatus;
+
+  fn napi_get_boolean(
+      env: NapiEnv,
+      value: bool,
+      result: *mut NapiValue,
+  ) -> NapiStatus;
+
 }
 
-extern "C" fn roundtrip(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
+extern "C" fn is_buffer(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
     let mut arguments = [ptr::null_mut()];
     let mut argument_count = arguments.len();
 
@@ -58,6 +70,9 @@ extern "C" fn roundtrip(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
     arguments[0]
 }
 
+
+
+
 #[unsafe(no_mangle)]
 pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> NapiValue {
     let mut function = ptr::null_mut();
@@ -65,9 +80,9 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
     if unsafe {
         napi_create_function(
             env,
-            ROUNDTRIP.as_ptr(),
-            ROUNDTRIP.len() - 1,
-            roundtrip,
+            ISBUFFER.as_ptr(),
+            ISBUFFER.len() - 1,
+            is_buffer,
             ptr::null_mut(),
             &mut function,
         )
@@ -76,7 +91,7 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
         return ptr::null_mut();
     }
 
-    if unsafe { napi_set_named_property(env, exports, ROUNDTRIP.as_ptr(), function) } != NAPI_OK {
+    if unsafe { napi_set_named_property(env, exports, ISBUFFER.as_ptr(), function) } != NAPI_OK {
         return ptr::null_mut();
     }
 
