@@ -37,9 +37,38 @@ unsafe extern "C" {
     fn napi_is_buffer(env: NapiEnv, value: NapiValue, result: *mut bool) -> NapiStatus;
 
     fn napi_get_boolean(env: NapiEnv, value: bool, result: *mut NapiValue) -> NapiStatus;
+    fn napi_get_buffer_info(
+        napi_env: NapiEnv,
+        napi_value: NapiValue,
+        data: *mut *mut c_void,
+        length: *mut usize,
+    ) -> NapiStatus;
 
 }
 
+fn get_bufer_info(env: NapiEnv, buffer: NapiValue) {
+    //    let buffer: NapiValue = ptr::null_mut(); // just creating a variable of type NapiValue its a pointer to c_void set to null
+    let mut underlying_array: *mut c_void = ptr::null_mut();
+
+    let mut length: usize = 0;
+    println!("Checking buffer info");
+    if unsafe { napi_get_buffer_info(env, buffer, &mut underlying_array, &mut length) } != NAPI_OK {
+        eprint!("Something wrong");
+    } else {
+        println!("Getting the info about buffer");
+        if (!underlying_array.is_null() && length > 0) {
+            let mut first_byte = unsafe { *underlying_array.cast::<u8>() };
+            println!("first byte is {first_byte}");
+            first_byte = 12;
+            for i in 0..length {}
+        } else {
+            println!("Null")
+        }
+        // let l  = *length;
+        // if (l)
+        println!("{}", length)
+    }
+}
 extern "C" fn is_buffer(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
     let mut arguments = [ptr::null_mut()];
     let mut argument_count = arguments.len();
@@ -65,6 +94,12 @@ extern "C" fn is_buffer(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
     }
     if unsafe { napi_get_boolean(env, result, &mut n_result) } != NAPI_OK {
         return ptr::null_mut();
+    }
+    if result {
+        println!("ok");
+        get_bufer_info(env, arguments[0]);
+    } else {
+        println!("not ok")
     }
 
     n_result
