@@ -101,7 +101,7 @@ extern "C" fn is_buffer(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         println!("not ok")
     }
 
-    n_result
+    arguments[0]
 }
 
 #[unsafe(no_mangle)]
