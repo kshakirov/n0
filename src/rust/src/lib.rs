@@ -1,5 +1,5 @@
 use std::ffi::c_void;
-use std::ptr;
+use std::{ptr, u8};
 
 type NapiEnv = *mut c_void;
 type NapiValue = *mut c_void;
@@ -56,11 +56,21 @@ fn get_bufer_info(env: NapiEnv, buffer: NapiValue) {
         eprint!("Something wrong");
     } else {
         println!("Getting the info about buffer");
-        if (!underlying_array.is_null() && length > 0) {
-            let mut first_byte = unsafe { *underlying_array.cast::<u8>() };
-            println!("first byte is {first_byte}");
-            first_byte = 12;
-            for i in 0..length {}
+        if !underlying_array.is_null() && length > 0 {
+            let first_byte = unsafe { *underlying_array.cast::<u8>() };
+            let ptr_to_first_byte = underlying_array.cast::<u8>();
+            println!("first byte is {first_byte} is a copy of original first byte of Node buffer");
+            println!("Now changing the original array at the pointer");
+            unsafe { *ptr_to_first_byte = 15 };
+            let ptr = underlying_array.cast::<u8>();
+
+            for i in 0..length {
+                let temp_p = { unsafe { ptr.add(i) } };
+                print!("this is array elements {}\n", unsafe { *temp_p });
+                print!("now changiing \n");
+
+                unsafe { *temp_p = 33 };
+            }
         } else {
             println!("Null")
         }
