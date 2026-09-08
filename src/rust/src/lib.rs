@@ -57,25 +57,14 @@ fn get_bufer_info(env: NapiEnv, buffer: NapiValue) {
     } else {
         println!("Getting the info about buffer");
         if !underlying_array.is_null() && length > 0 {
-            let first_byte = unsafe { *underlying_array.cast::<u8>() };
-            let ptr_to_first_byte = underlying_array.cast::<u8>();
-            println!("first byte is {first_byte} is a copy of original first byte of Node buffer");
-            println!("Now changing the original array at the pointer");
-            unsafe { *ptr_to_first_byte = 15 };
-            let ptr = underlying_array.cast::<u8>();
+            let bytes =
+                unsafe { std::slice::from_raw_parts_mut(underlying_array.cast::<u8>(), length) };
 
-            for i in 0..length {
-                let temp_p = { unsafe { ptr.add(i) } };
-                print!("this is array elements {}\n", unsafe { *temp_p });
-                print!("now changiing \n");
-
-                unsafe { *temp_p = 33 };
-            }
+            process_bytes(bytes);
         } else {
             println!("Null")
         }
-        // let l  = *length;
-        // if (l)
+
         println!("{}", length)
     }
 }
@@ -138,4 +127,12 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
     }
 
     exports
+}
+
+fn process_bytes(bytes: &mut [u8]) {
+    print!("The future processing tool");
+    for b in bytes {
+        println!("Value before {}\n", *b);
+        *b = 15;
+    }
 }
