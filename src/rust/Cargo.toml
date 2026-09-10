@@ -7,3 +7,8 @@ edition = "2024"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
+napi = "2.16.0"         # Основные типы Node-API
+napi-derive = "2.16.0"  # Тот самый макрос #[napi]
+
+[build-dependencies]
+napi-build = "2.1.3"    # Сборщик для проброса C ABI

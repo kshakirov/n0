@@ -1,5 +1,6 @@
+use napi_derive::napi;
 use std::ffi::c_void;
-use std::{ptr, u8};
+use std::{ptr, u8}; // Затягиваем макрос!
 
 type NapiEnv = *mut c_void;
 type NapiValue = *mut c_void;
@@ -68,66 +69,67 @@ fn get_bufer_info(env: NapiEnv, buffer: NapiValue) {
         println!("{}", length)
     }
 }
-extern "C" fn is_buffer(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
-    let mut arguments = [ptr::null_mut()];
-    let mut argument_count = arguments.len();
-    let mut result = false;
-    let mut n_result: NapiValue = ptr::null_mut();
+// #[napi(js_name = "isBuffer")]
+// pub fn is_buffer_manual(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
+//     let mut arguments = [ptr::null_mut()];
+//     let mut argument_count = arguments.len();
+//     let mut result = false;
+//     let mut n_result: NapiValue = ptr::null_mut();
 
-    if unsafe {
-        napi_get_cb_info(
-            env,
-            info,
-            &mut argument_count,
-            arguments.as_mut_ptr(),
-            ptr::null_mut(),
-            ptr::null_mut(),
-        )
-    } != NAPI_OK
-        || argument_count != 1
-    {
-        return ptr::null_mut();
-    }
-    if unsafe { napi_is_buffer(env, arguments[0], &mut result) } != NAPI_OK {
-        return ptr::null_mut();
-    }
-    if unsafe { napi_get_boolean(env, result, &mut n_result) } != NAPI_OK {
-        return ptr::null_mut();
-    }
-    if result {
-        println!("ok");
-        get_bufer_info(env, arguments[0]);
-    } else {
-        println!("not ok")
-    }
+//     if unsafe {
+//         napi_get_cb_info(
+//             env,
+//             info,
+//             &mut argument_count,
+//             arguments.as_mut_ptr(),
+//             ptr::null_mut(),
+//             ptr::null_mut(),
+//         )
+//     } != NAPI_OK
+//         || argument_count != 1
+//     {
+//         return ptr::null_mut();
+//     }
+//     if unsafe { napi_is_buffer(env, arguments[0], &mut result) } != NAPI_OK {
+//         return ptr::null_mut();
+//     }
+//     if unsafe { napi_get_boolean(env, result, &mut n_result) } != NAPI_OK {
+//         return ptr::null_mut();
+//     }
+//     if result {
+//         println!("ok");
+//         get_bufer_info(env, arguments[0]);
+//     } else {
+//         println!("not ok")
+//     }
 
-    arguments[0]
-}
+//     arguments[0]
+// }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> NapiValue {
-    let mut function = ptr::null_mut();
+// #[unsafe(no_mangle)]
+// pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> NapiValue {
+//     let mut function = ptr::null_mut();
 
-    if unsafe {
-        napi_create_function(
-            env,
-            ISBUFFER.as_ptr(),
-            ISBUFFER.len() - 1,
-            is_buffer,
-            ptr::null_mut(),
-            &mut function,
-        )
-    } != NAPI_OK
-    {
-        return ptr::null_mut();
-    }
+//     if unsafe {
+//         napi_create_function(
+//             env,
+//             ISBUFFER.as_ptr(),
+//             ISBUFFER.len() - 1,
+//             is_buffer,
+//             ptr::null_mut(),
+//             &mut function,
+//         )
+//     } != NAPI_OK
+//     {
+//         return ptr::null_mut();
+//     }
 
-    if unsafe { napi_set_named_property(env, exports, ISBUFFER.as_ptr(), function) } != NAPI_OK {
-        return ptr::null_mut();
-    }
+//     if unsafe { napi_set_named_property(env, exports, ISBUFFER.as_ptr(), function) } != NAPI_OK {
+//         return ptr::null_mut();
+//     }
 
-    exports
-}
+//     exports
+// }
 
 fn process_bytes(bytes: &mut [u8]) {
     print!("The future processing tool");
@@ -135,4 +137,22 @@ fn process_bytes(bytes: &mut [u8]) {
         println!("Value before {}\n", *b);
         *b = 15;
     }
+}
+
+#[napi(js_name = "isBuffer")]
+pub fn process_buffer_macro(
+    mut buffer: napi::bindgen_prelude::Buffer,
+) -> napi::bindgen_prelude::Buffer {
+    // Вся рутина с get_cb_info, napi_is_buffer и napi_get_buffer_info
+    // уже сделана макросом под капотом!
+
+    // Работаем напрямую с безопасным Rust-срезом:
+    let bytes: &mut [u8] = buffer.as_mut();
+
+    for b in bytes {
+        *b = 42; // Для примера меняем байты на 42
+    }
+
+    // Возвращаем тот же буфер в JS без копирования
+    buffer
 }
