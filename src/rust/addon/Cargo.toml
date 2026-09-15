@@ -1,0 +1,15 @@
+[package]
+name = "addon"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "n0"
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = "2.16.0"
+napi-derive = "2.16.0"
+
+[build-dependencies]
+napi-build = "2.1.3"

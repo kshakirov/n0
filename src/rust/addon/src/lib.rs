@@ -1,0 +1,29 @@
+use napi_derive::napi;
+
+#[napi(js_name = "isBuffer")]
+pub fn process_buffer_macro(
+    mut buffer: napi::bindgen_prelude::Buffer,
+) -> napi::bindgen_prelude::Buffer {
+    // Работаем напрямую с безопасным Rust-срезом:
+    let bytes: &mut [u8] = buffer.as_mut();
+
+    for b in bytes {
+        *b = 42; // Для примера меняем байты на 42
+    }
+
+    // Возвращаем тот же буфер в JS без копирования
+    buffer
+}
+
+pub fn parse_http_header(buffer: &mut [u8]) -> &mut [u8] {
+    buffer
+}
+
+#[napi(js_name = "n_parse_http_header")]
+pub fn n_parse_http_header(
+    mut buffer: napi::bindgen_prelude::Buffer,
+) -> napi::bindgen_prelude::Buffer {
+    let bytes: &mut [u8] = buffer.as_mut();
+    parse_http_header(bytes);
+    buffer
+}

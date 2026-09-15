@@ -1,3 +1,7 @@
 [workspace]
-members = ["src/rust"]
+members = [
+    "src/rust/n0-core",
+    "src/rust/addon",
+    "src/rust/runner",
+]
 resolver = "3"
