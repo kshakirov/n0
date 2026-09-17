@@ -1,5 +1,5 @@
+use n0_core::parse_http_header;
 use napi_derive::napi;
-
 #[napi(js_name = "isBuffer")]
 pub fn process_buffer_macro(
     mut buffer: napi::bindgen_prelude::Buffer,
@@ -12,10 +12,6 @@ pub fn process_buffer_macro(
     }
 
     // Возвращаем тот же буфер в JS без копирования
-    buffer
-}
-
-pub fn parse_http_header(buffer: &mut [u8]) -> &mut [u8] {
     buffer
 }
 

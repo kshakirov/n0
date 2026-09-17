@@ -10,6 +10,6 @@ crate-type = ["cdylib"]
 [dependencies]
 napi = "2.16.0"
 napi-derive = "2.16.0"
-
+n0-core={ path = "../n0-core" }
 [build-dependencies]
 napi-build = "2.1.3"
