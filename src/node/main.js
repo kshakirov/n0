@@ -19,7 +19,7 @@ const server = net.createServer((c) => {
 	buffer = Buffer.concat([buffer,d]);
 	console.log("Data at the end is ");
 	console.log(buffer);
-	const output = n0.isBuffer(buffer);
+	const output = n0.n_parse_http_header(buffer);
 	console.log(buffer);
 	console.log(output);
 	buffer = output;
