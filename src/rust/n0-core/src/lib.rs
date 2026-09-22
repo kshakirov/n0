@@ -1,14 +1,29 @@
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
-
+#[derive(PartialEq)]
 enum HeaderParserState {
     ReqMethod,
     ReqUri,
     ReqVersion,
-    CR,
+    EndLF,
     CRLF,
     Error,
+    HeaderName,
+    Success,
+}
+#[repr(u8)]
+enum Method {
+    GET,
+    PUT,
+    POST,
+    DELETE,
+} // those will be method codes
+
+#[repr(u8)]
+enum BodyHeader {
+    FixedContent,
+    ChunkedContent,
 }
 
 fn wirth_http_header_parser(b: &mut u8, state: &mut HeaderParserState, mut counter: i32) -> i32 {
@@ -50,6 +65,28 @@ fn wirth_http_header_parser(b: &mut u8, state: &mut HeaderParserState, mut count
             return counter;
         }
 
+        HeaderParserState::CRLF if *b == 10 => {
+            counter += 1;
+            *state = HeaderParserState::HeaderName;
+            return counter;
+        }
+
+        HeaderParserState::HeaderName if *b == 13 => {
+            counter += 1;
+            *state = HeaderParserState::EndLF;
+            return counter;
+        }
+        HeaderParserState::EndLF if *b == 10 => {
+            counter += 1;
+            *state = HeaderParserState::Success;
+            return counter;
+        }
+
+        HeaderParserState::Success => {
+            *state = HeaderParserState::Success;
+            return counter;
+        }
+
         _other => {
             return counter;
         }
@@ -62,7 +99,9 @@ pub fn parse_http_header(buffer: &mut [u8]) -> &mut [u8] {
     let mut counter = 0;
     for b in bytes {
         counter = wirth_http_header_parser(b, &mut state, counter);
-        println!("{}\n", counter);
+        if state == HeaderParserState::Success {
+            println!("counter is {} state is {} \n", counter, counter);
+        }
     }
 
     buffer
