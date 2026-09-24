@@ -13,6 +13,7 @@ enum HeaderParserState {
     Success,
 }
 #[repr(u8)]
+#[derive(PartialEq)]
 enum Method {
     GET,
     PUT,
@@ -38,7 +39,12 @@ struct RecognizingData {
     method: MethodData,
 }
 
-fn wirth_http_header_parser(b: &u8, state: &mut HeaderParserState, mut counter: i32) -> i32 {
+fn wirth_http_header_parser(
+    b: &u8,
+    state: &mut HeaderParserState,
+    mut counter: i32,
+    rd: &mut RecognizingData,
+) -> i32 {
     //    print!("byte is {}\n", b);
     match state {
         HeaderParserState::ReqMethod if *b == 32 => {
@@ -50,6 +56,7 @@ fn wirth_http_header_parser(b: &u8, state: &mut HeaderParserState, mut counter: 
         HeaderParserState::ReqMethod if *b != 32 => {
             counter += 1;
             *state = HeaderParserState::ReqMethod;
+            recognize_header(b, rd);
             return counter;
         }
 
@@ -105,9 +112,32 @@ fn wirth_http_header_parser(b: &u8, state: &mut HeaderParserState, mut counter: 
     }
 }
 
-fn recognize_header(b: u8, matching_counter: i8) {
-    match b {
-        80 if matching_counter == 0 => {}
+fn recognize_header(b: &u8, rd: &mut RecognizingData) {
+    //only for get testing
+    match rd.method.matching_count {
+        0 => match b {
+            71 => {
+                rd.method.guess = Method::GET;
+                rd.method.matching_count += 1
+            }
+            _ => {}
+        },
+        1 => match b {
+            69 => {
+                if rd.method.guess == Method::GET {
+                    rd.method.matching_count += 1
+                }
+            }
+            _ => {}
+        },
+        2 => match b {
+            69 => {
+                if rd.method.guess == Method::GET {
+                    rd.method.matching_count += 1
+                }
+            }
+            _ => {}
+        },
         _ => {}
     }
 }
@@ -119,8 +149,15 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> &'a mut [
 
     let mut state = HeaderParserState::ReqMethod;
     let mut counter = 0;
+    let mut rd = RecognizingData {
+        method: MethodData {
+            guess: Method::PSTAR,
+            matching_count: 0,
+        },
+    };
+
     for b in buffer {
-        counter = wirth_http_header_parser(b, &mut state, counter);
+        counter = wirth_http_header_parser(b, &mut state, counter, &mut rd);
         if state == HeaderParserState::Success {
             println!("counter is {} state is {} \n", counter, counter);
         }
