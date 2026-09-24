@@ -26,7 +26,7 @@ enum BodyHeader {
     ChunkedContent,
 }
 
-fn wirth_http_header_parser(b: &mut u8, state: &mut HeaderParserState, mut counter: i32) -> i32 {
+fn wirth_http_header_parser(b: &u8, state: &mut HeaderParserState, mut counter: i32) -> i32 {
     //    print!("byte is {}\n", b);
     match state {
         HeaderParserState::ReqMethod if *b == 32 => {
@@ -93,18 +93,21 @@ fn wirth_http_header_parser(b: &mut u8, state: &mut HeaderParserState, mut count
     }
 }
 
-pub fn parse_http_header(buffer: &mut [u8]) -> &mut [u8] {
-    let bytes: &mut [u8] = buffer.as_mut();
+pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> &'a mut [i32] {
+    for i in &mut *i_table {
+        print!("{}", *i);
+    }
+    //let bytes: &mut [u8] = buffer.as_mut();
     let mut state = HeaderParserState::ReqMethod;
     let mut counter = 0;
-    for b in bytes {
+    for b in buffer {
         counter = wirth_http_header_parser(b, &mut state, counter);
         if state == HeaderParserState::Success {
             println!("counter is {} state is {} \n", counter, counter);
         }
     }
 
-    buffer
+    return i_table;
 }
 
 #[cfg(test)]

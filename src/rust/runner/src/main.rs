@@ -4,5 +4,6 @@ fn main() {
     let s = "GET /users/123 HTTP/1.1\r\n\r\n";
 
     let mut buf: Vec<u8> = s.as_bytes().to_vec();
-    parse_http_header(&mut buf);
+    let mut vec: Vec<i32> = [0, 1, 0, 4].to_vec();
+    parse_http_header(&mut buf, &mut vec);
 }
