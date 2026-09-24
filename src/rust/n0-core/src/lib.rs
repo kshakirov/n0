@@ -18,12 +18,24 @@ enum Method {
     PUT,
     POST,
     DELETE,
+    PSTAR,
+    HEAD,
+    PATCH,
 } // those will be method codes
 
 #[repr(u8)]
 enum BodyHeader {
     FixedContent,
     ChunkedContent,
+}
+
+struct MethodData {
+    guess: Method,
+    matching_count: i8,
+}
+
+struct RecognizingData {
+    method: MethodData,
 }
 
 fn wirth_http_header_parser(b: &u8, state: &mut HeaderParserState, mut counter: i32) -> i32 {
@@ -93,11 +105,18 @@ fn wirth_http_header_parser(b: &u8, state: &mut HeaderParserState, mut counter: 
     }
 }
 
+fn recognize_header(b: u8, matching_counter: i8) {
+    match b {
+        80 if matching_counter == 0 => {}
+        _ => {}
+    }
+}
+
 pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> &'a mut [i32] {
     for i in &mut *i_table {
         print!("{}", *i);
     }
-    //let bytes: &mut [u8] = buffer.as_mut();
+
     let mut state = HeaderParserState::ReqMethod;
     let mut counter = 0;
     for b in buffer {
