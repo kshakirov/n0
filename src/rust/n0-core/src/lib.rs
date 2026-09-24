@@ -138,6 +138,11 @@ fn recognize_header(b: &u8, rd: &mut RecognizingData) {
             }
             _ => {}
         },
+        3 => match b {
+            32 => if rd.method.guess == Method::GET {},
+            _ if rd.method.guess == Method::GET => {}
+            _ => {}
+        },
         _ => {}
     }
 }
