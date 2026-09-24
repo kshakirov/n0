@@ -112,7 +112,7 @@ fn wirth_http_header_parser(
     }
 }
 
-fn recognize_header(b: &u8, rd: &mut RecognizingData) {
+fn recognize_header(b: &u8, rd: &mut RecognizingData) -> HeaderParserState {
     //only for get testing
     match rd.method.matching_count {
         0 => match b {
@@ -123,28 +123,27 @@ fn recognize_header(b: &u8, rd: &mut RecognizingData) {
             _ => {}
         },
         1 => match b {
-            69 => {
-                if rd.method.guess == Method::GET {
-                    rd.method.matching_count += 1
-                }
-            }
+            69 if rd.method.guess == Method::GET => rd.method.matching_count += 1,
+
+            _ if rd.method.guess == Method::GET => rd.method.matching_count += 1,
+
             _ => {}
         },
         2 => match b {
-            69 => {
-                if rd.method.guess == Method::GET {
-                    rd.method.matching_count += 1
-                }
-            }
+            69 if rd.method.guess == Method::GET => rd.method.matching_count += 1,
+
             _ => {}
         },
         3 => match b {
             32 => if rd.method.guess == Method::GET {},
-            _ if rd.method.guess == Method::GET => {}
+            _ if rd.method.guess == Method::GET => {
+                return HeaderParserState::Error;
+            }
             _ => {}
         },
         _ => {}
     }
+    return HeaderParserState::ReqMethod;
 }
 
 pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> &'a mut [i32] {
