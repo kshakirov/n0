@@ -15,13 +15,13 @@ enum HeaderParserState {
 #[repr(u8)]
 #[derive(PartialEq)]
 enum Method {
-    GET,
     PUT,
     POST,
     DELETE,
     PSTAR,
     HEAD,
     PATCH,
+    GET,
 } // those will be method codes
 
 #[repr(u8)]
@@ -49,6 +49,11 @@ fn wirth_http_header_parser(
     match state {
         HeaderParserState::ReqMethod if *b == 32 => {
             counter += 1;
+            let m_state = recognize_header(b, rd);
+            if m_state == HeaderParserState::Error {
+                *state = HeaderParserState::Error;
+                return counter;
+            }
             *state = HeaderParserState::ReqUri;
             return counter;
         }
@@ -56,7 +61,11 @@ fn wirth_http_header_parser(
         HeaderParserState::ReqMethod if *b != 32 => {
             counter += 1;
             *state = HeaderParserState::ReqMethod;
-            recognize_header(b, rd);
+            let m_state = recognize_header(b, rd);
+            if m_state == HeaderParserState::Error {
+                *state = HeaderParserState::Error;
+                return counter;
+            }
             return counter;
         }
 
@@ -106,6 +115,12 @@ fn wirth_http_header_parser(
             return counter;
         }
 
+        HeaderParserState::Error => {
+            *state = HeaderParserState::Error;
+            println!("error");
+            return counter;
+        }
+
         _other => {
             return counter;
         }
@@ -125,13 +140,13 @@ fn recognize_header(b: &u8, rd: &mut RecognizingData) -> HeaderParserState {
         1 => match b {
             69 if rd.method.guess == Method::GET => rd.method.matching_count += 1,
 
-            _ if rd.method.guess == Method::GET => rd.method.matching_count += 1,
+            _ if rd.method.guess == Method::GET => return HeaderParserState::Error,
 
             _ => {}
         },
         2 => match b {
-            69 if rd.method.guess == Method::GET => rd.method.matching_count += 1,
-
+            84 if rd.method.guess == Method::GET => rd.method.matching_count += 1,
+            _ if rd.method.guess == Method::GET => return HeaderParserState::Error,
             _ => {}
         },
         3 => match b {
@@ -164,6 +179,11 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> &'a mut [
         counter = wirth_http_header_parser(b, &mut state, counter, &mut rd);
         if state == HeaderParserState::Success {
             println!("counter is {} state is {} \n", counter, counter);
+            i_table[0] = rd.method.guess as i32;
+            break;
+        } else if state == HeaderParserState::Error {
+            println!("Got error exititng..");
+            break;
         }
     }
 

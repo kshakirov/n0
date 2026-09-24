@@ -12,17 +12,18 @@ const net = require('node:net');
 const server = net.createServer((c) => {
     // 'connection' listener.
     var buffer = Buffer.alloc(0);
-    const headerData = new Int32Array([1 , 1, 0, 0]);
+    const headerData = new Int32Array([0 , 0, 0, 0]);
     console.log('client connected');
     c.on('data', (d) => {
 	console.log("Data from client");
 	console.log(d);
 	buffer = Buffer.concat([buffer,d]);
-	console.log("Data at the end is ");
-	console.log(buffer);
+//	console.log("Data at the end is ");
+//	console.log(buffer);
 	const output = n0.n_parse_http_header(buffer, headerData);
-	console.log(buffer);
-	console.log(output);
+	console.log(headerData);
+//	console.log(buffer);
+//	console.log(output);
 	buffer = output;
 	c.write(buffer);
 	c.end();
