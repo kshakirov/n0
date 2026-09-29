@@ -18,6 +18,9 @@ enum HeaderParserState {
 enum Method {
     PSTAR,
     GET,
+    PUT,
+    POST,
+    PATCH,
 } // those will be method codes
 
 //#[repr(u8)]
@@ -154,10 +157,28 @@ fn recognize_method(b: &u8, rd: &mut RecognizingData) -> HeaderParserState {
                 rd.method.guess = Method::GET;
                 rd.method.matching_count += 1
             }
+            80 => {
+                rd.method.guess = Method::PSTAR;
+                rd.method.matching_count += 1
+            }
             _ => {}
         },
         1 => match b {
             69 if rd.method.guess == Method::GET => rd.method.matching_count += 1,
+            85 if rd.method.guess == Method::PSTAR => {
+                rd.method.guess = Method::PUT;
+                rd.method.matching_count += 1
+            }
+            79 if rd.method.guess == Method::PSTAR => {
+                rd.method.guess = Method::POST;
+                rd.method.matching_count += 1
+            }
+            65 if rd.method.guess == Method::PSTAR => {
+                rd.method.guess = Method::PATCH;
+                rd.method.matching_count += 1
+            }
+
+            _ if rd.method.guess == Method::PSTAR => return HeaderParserState::Error,
 
             _ if rd.method.guess == Method::GET => return HeaderParserState::Error,
 
@@ -165,22 +186,35 @@ fn recognize_method(b: &u8, rd: &mut RecognizingData) -> HeaderParserState {
         },
         2 => match b {
             84 if rd.method.guess == Method::GET => rd.method.matching_count += 1,
+            84 if rd.method.guess == Method::PUT => rd.method.matching_count += 1,
+            83 if rd.method.guess == Method::POST => rd.method.matching_count += 1,
             _ if rd.method.guess == Method::GET => return HeaderParserState::Error,
+            _ if rd.method.guess == Method::PUT => return HeaderParserState::Error,
             _ => {}
         },
         3 => match b {
-            32 => if rd.method.guess == Method::GET {},
+            32 if rd.method.guess == Method::GET => {}
+            32 if rd.method.guess == Method::PUT => {}
             _ if rd.method.guess == Method::GET => {
                 return HeaderParserState::Error;
             }
+            _ if rd.method.guess == Method::PUT => {
+                return HeaderParserState::Error;
+            }
+            84 if rd.method.guess == Method::POST => rd.method.matching_count += 1,
+            _ if rd.method.guess == Method::POST => {
+                return HeaderParserState::Error;
+            }
+
             _ => {}
         },
+
         _ => {}
     }
     return HeaderParserState::ReqMethod;
 }
 
-pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> &'a mut [i32] {
+pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) {
     for i in &mut *i_table {
         print!("{}", *i);
     }
@@ -205,8 +239,6 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> &'a mut [
             break;
         }
     }
-
-    return i_table;
 }
 
 #[cfg(test)]
