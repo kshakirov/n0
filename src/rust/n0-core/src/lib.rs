@@ -205,6 +205,13 @@ fn recognize_method(b: &u8, rd: &mut RecognizingData) -> HeaderParserState {
             _ if rd.method.guess == Method::POST => {
                 return HeaderParserState::Error;
             }
+            _ => {}
+        },
+        4 => match b {
+            32 if rd.method.guess == Method::POST => {}
+            _ if rd.method.guess == Method::POST => {
+                return HeaderParserState::Error;
+            }
 
             _ => {}
         },
