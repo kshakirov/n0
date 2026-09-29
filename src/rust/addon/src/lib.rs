@@ -17,11 +17,7 @@ pub fn process_buffer_macro(
 }
 
 #[napi(js_name = "n_parse_http_header")]
-pub fn n_parse_http_header(
-    buffer: napi::bindgen_prelude::Buffer,
-    mut numbers: Int32Array,
-) -> napi::bindgen_prelude::Buffer {
+pub fn n_parse_http_header(buffer: napi::bindgen_prelude::Buffer, mut numbers: Int32Array) {
     let bytes: &[u8] = buffer.as_ref();
     parse_http_header(bytes, &mut numbers);
-    buffer
 }
