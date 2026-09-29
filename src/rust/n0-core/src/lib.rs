@@ -10,25 +10,21 @@ enum HeaderParserState {
     CRLF,
     Error,
     HeaderName,
+    HeaderValue,
     Success,
 }
 #[repr(u8)]
 #[derive(PartialEq)]
 enum Method {
-    PUT,
-    POST,
-    DELETE,
     PSTAR,
-    HEAD,
-    PATCH,
     GET,
 } // those will be method codes
 
-#[repr(u8)]
-enum BodyHeader {
-    FixedContent,
-    ChunkedContent,
-}
+//#[repr(u8)]
+// enum BodyHeader {
+//     FixedContent,
+//     ChunkedContent,
+// }
 
 struct MethodData {
     guess: Method,
@@ -49,7 +45,7 @@ fn wirth_http_header_parser(
     match state {
         HeaderParserState::ReqMethod if *b == 32 => {
             counter += 1;
-            let m_state = recognize_header(b, rd);
+            let m_state = recognize_method(b, rd);
             if m_state == HeaderParserState::Error {
                 *state = HeaderParserState::Error;
                 return counter;
@@ -61,7 +57,7 @@ fn wirth_http_header_parser(
         HeaderParserState::ReqMethod if *b != 32 => {
             counter += 1;
             *state = HeaderParserState::ReqMethod;
-            let m_state = recognize_header(b, rd);
+            let m_state = recognize_method(b, rd);
             if m_state == HeaderParserState::Error {
                 *state = HeaderParserState::Error;
                 return counter;
@@ -99,14 +95,37 @@ fn wirth_http_header_parser(
             return counter;
         }
 
+        HeaderParserState::EndLF if *b == 10 => {
+            counter += 1;
+            *state = HeaderParserState::Success;
+            return counter;
+        }
+        HeaderParserState::HeaderName if *b == 58 => {
+            counter += 1;
+            *state = HeaderParserState::HeaderValue;
+            return counter;
+        }
+
         HeaderParserState::HeaderName if *b == 13 => {
             counter += 1;
             *state = HeaderParserState::EndLF;
             return counter;
         }
-        HeaderParserState::EndLF if *b == 10 => {
+        HeaderParserState::HeaderName => {
             counter += 1;
-            *state = HeaderParserState::Success;
+            *state = HeaderParserState::HeaderName;
+            return counter;
+        }
+
+        HeaderParserState::HeaderValue if *b == 13 => {
+            counter += 1;
+            *state = HeaderParserState::CRLF;
+            return counter;
+        }
+
+        HeaderParserState::HeaderValue => {
+            counter += 1;
+            *state = HeaderParserState::HeaderValue;
             return counter;
         }
 
@@ -127,7 +146,7 @@ fn wirth_http_header_parser(
     }
 }
 
-fn recognize_header(b: &u8, rd: &mut RecognizingData) -> HeaderParserState {
+fn recognize_method(b: &u8, rd: &mut RecognizingData) -> HeaderParserState {
     //only for get testing
     match rd.method.matching_count {
         0 => match b {

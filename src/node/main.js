@@ -18,12 +18,8 @@ const server = net.createServer((c) => {
 	console.log("Data from client");
 	console.log(d);
 	buffer = Buffer.concat([buffer,d]);
-//	console.log("Data at the end is ");
-//	console.log(buffer);
 	const output = n0.n_parse_http_header(buffer, headerData);
 	console.log(headerData);
-//	console.log(buffer);
-//	console.log(output);
 	buffer = output;
 	c.write(buffer);
 	c.end();
