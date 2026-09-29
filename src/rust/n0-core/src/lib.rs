@@ -34,10 +34,17 @@ struct MethodData {
     matching_count: i8,
 }
 
+struct HeaderData {
+    content_length_match: usize,
+    transfer_encoding_match: usize,
+}
 struct RecognizingData {
     method: MethodData,
+    headers: HeaderData,
 }
 
+const CONTENT_LENGTH: &[u8] = b"content-length";
+const TRANSFER_ENCODING: &[u8] = b"transfer-encoding";
 fn wirth_http_header_parser(
     b: &u8,
     state: &mut HeaderParserState,
@@ -117,12 +124,26 @@ fn wirth_http_header_parser(
         HeaderParserState::HeaderName => {
             counter += 1;
             *state = HeaderParserState::HeaderName;
+            if rd.headers.content_length_match < 14
+                && *b == CONTENT_LENGTH[rd.headers.content_length_match]
+            {
+                rd.headers.content_length_match += 1;
+            } else if rd.headers.transfer_encoding_match < 17
+                && *b == TRANSFER_ENCODING[rd.headers.transfer_encoding_match]
+            {
+                rd.headers.transfer_encoding_match += 1;
+            } else {
+                rd.headers.content_length_match = 0;
+                rd.headers.transfer_encoding_match = 0;
+            }
             return counter;
         }
 
         HeaderParserState::HeaderValue if *b == 13 => {
             counter += 1;
             *state = HeaderParserState::CRLF;
+            rd.headers.content_length_match = 0;
+            rd.headers.transfer_encoding_match = 0;
             return counter;
         }
 
@@ -232,6 +253,10 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) {
         method: MethodData {
             guess: Method::PSTAR,
             matching_count: 0,
+        },
+        headers: HeaderData {
+            content_length_match: 0,
+            transfer_encoding_match: 0,
         },
     };
 
