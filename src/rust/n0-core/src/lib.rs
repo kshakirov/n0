@@ -29,6 +29,13 @@ enum Method {
 //     ChunkedContent,
 // }
 
+#[repr(u8)]
+#[derive(PartialEq)]
+enum ContentType {
+    ContentLength,
+    TransderEncoding,
+}
+
 struct MethodData {
     guess: Method,
     matching_count: i8,
@@ -37,6 +44,8 @@ struct MethodData {
 struct HeaderData {
     content_length_match: usize,
     transfer_encoding_match: usize,
+    content_header_failed: bool,
+    transfer_encoding_failed: bool,
 }
 struct RecognizingData {
     method: MethodData,
@@ -124,7 +133,8 @@ fn wirth_http_header_parser(
         HeaderParserState::HeaderName => {
             counter += 1;
             *state = HeaderParserState::HeaderName;
-            if rd.headers.content_length_match < 14
+            if !rd.headers.content_header_failed
+                && rd.headers.content_length_match < 14
                 && *b == CONTENT_LENGTH[rd.headers.content_length_match]
             {
                 rd.headers.content_length_match += 1;
@@ -135,6 +145,8 @@ fn wirth_http_header_parser(
             } else {
                 rd.headers.content_length_match = 0;
                 rd.headers.transfer_encoding_match = 0;
+                rd.headers.content_header_failed = true;
+                rd.headers.transfer_encoding_failed = true;
             }
             return counter;
         }
@@ -257,6 +269,8 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) {
         headers: HeaderData {
             content_length_match: 0,
             transfer_encoding_match: 0,
+            content_header_failed: false,
+            transfer_encoding_failed: false,
         },
     };
 
@@ -265,6 +279,7 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) {
         if state == HeaderParserState::Success {
             println!("counter is {} state is {} \n", counter, counter);
             i_table[0] = rd.method.guess as i32;
+
             break;
         } else if state == HeaderParserState::Error {
             println!("Got error exititng..");
