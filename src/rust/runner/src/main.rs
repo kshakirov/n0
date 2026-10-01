@@ -10,4 +10,5 @@ fn main() {
     let _r = parse_http_header(&mut buf, &mut vec);
     assert!(vec[0] == 3);
     assert!(vec[1] == 1);
+    assert!(vec[2] == 10);
 }
