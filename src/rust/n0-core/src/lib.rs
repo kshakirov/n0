@@ -32,6 +32,7 @@ enum Method {
 #[repr(u8)]
 #[derive(PartialEq)]
 enum ContentType {
+    NoContent,
     ContentLength,
     TransderEncoding,
 }
@@ -46,6 +47,7 @@ struct HeaderData {
     transfer_encoding_match: usize,
     content_header_failed: bool,
     transfer_encoding_failed: bool,
+    content_type: ContentType,
 }
 struct RecognizingData {
     method: MethodData,
@@ -120,6 +122,16 @@ fn wirth_http_header_parser(
             return counter;
         }
         HeaderParserState::HeaderName if *b == 58 => {
+            if !rd.headers.content_header_failed && rd.headers.content_length_match == 14 {
+                rd.headers.content_type = ContentType::ContentLength;
+            }
+            if !rd.headers.transfer_encoding_failed && rd.headers.transfer_encoding_match == 17 {
+                rd.headers.content_type = ContentType::TransderEncoding;
+            }
+            rd.headers.content_length_match = 0;
+            rd.headers.transfer_encoding_match = 0;
+            rd.headers.content_header_failed = false;
+            rd.headers.transfer_encoding_failed = false;
             counter += 1;
             *state = HeaderParserState::HeaderValue;
             return counter;
@@ -131,14 +143,13 @@ fn wirth_http_header_parser(
             return counter;
         }
         HeaderParserState::HeaderName => {
-            counter += 1;
-            *state = HeaderParserState::HeaderName;
             if !rd.headers.content_header_failed
-                && rd.headers.content_length_match < 14
+                && rd.headers.content_length_match <= 14
                 && *b == CONTENT_LENGTH[rd.headers.content_length_match]
             {
+                println!("{} ", rd.headers.content_length_match);
                 rd.headers.content_length_match += 1;
-            } else if rd.headers.transfer_encoding_match < 17
+            } else if rd.headers.transfer_encoding_match <= 17
                 && *b == TRANSFER_ENCODING[rd.headers.transfer_encoding_match]
             {
                 rd.headers.transfer_encoding_match += 1;
@@ -148,6 +159,9 @@ fn wirth_http_header_parser(
                 rd.headers.content_header_failed = true;
                 rd.headers.transfer_encoding_failed = true;
             }
+            counter += 1;
+            *state = HeaderParserState::HeaderName;
+
             return counter;
         }
 
@@ -271,15 +285,16 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) {
             transfer_encoding_match: 0,
             content_header_failed: false,
             transfer_encoding_failed: false,
+            content_type: ContentType::NoContent,
         },
     };
 
     for b in buffer {
         counter = wirth_http_header_parser(b, &mut state, counter, &mut rd);
         if state == HeaderParserState::Success {
-            println!("counter is {} state is {} \n", counter, counter);
+            //            println!("counter is {} state is {} \n", counter, counter);
             i_table[0] = rd.method.guess as i32;
-
+            i_table[1] = rd.headers.content_type as i32;
             break;
         } else if state == HeaderParserState::Error {
             println!("Got error exititng..");
