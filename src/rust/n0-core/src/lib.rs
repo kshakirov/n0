@@ -147,7 +147,6 @@ fn wirth_http_header_parser(
                 && rd.headers.content_length_match <= 14
                 && *b == CONTENT_LENGTH[rd.headers.content_length_match]
             {
-                println!("{} ", rd.headers.content_length_match);
                 rd.headers.content_length_match += 1;
             } else if rd.headers.transfer_encoding_match <= 17
                 && *b == TRANSFER_ENCODING[rd.headers.transfer_encoding_match]
@@ -269,10 +268,6 @@ fn recognize_method(b: &u8, rd: &mut RecognizingData) -> HeaderParserState {
 }
 
 pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) {
-    for i in &mut *i_table {
-        print!("{}", *i);
-    }
-
     let mut state = HeaderParserState::ReqMethod;
     let mut counter = 0;
     let mut rd = RecognizingData {
