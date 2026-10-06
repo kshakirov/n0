@@ -1,3 +1,5 @@
+use core::error;
+
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
@@ -57,6 +59,23 @@ struct RecognizingData {
 
 const CONTENT_LENGTH: &[u8] = b"content-length";
 const TRANSFER_ENCODING: &[u8] = b"transfer-encoding";
+
+#[repr(u8)]
+#[derive(PartialEq)]
+enum BodyParserStatus {
+    ExpectChunkSize,
+    ReadChunkData,
+    Success,
+    Error,
+}
+
+#[repr(u8)]
+#[derive(PartialEq)]
+enum NetworkInput {
+    ReadingFixedData,
+    Timeout,
+}
+
 fn wirth_http_header_parser(
     b: &u8,
     state: &mut HeaderParserState,
@@ -277,6 +296,45 @@ fn recognize_method(b: &u8, rd: &mut RecognizingData) -> HeaderParserState {
         _ => {}
     }
     return HeaderParserState::ReqMethod;
+}
+
+fn next_state(
+    state: BodyParserStatus,
+    network_input: NetworkInput,
+    current_value: i32,
+) -> BodyParserStatus {
+    match state {
+        BodyParserStatus::ReadChunkData
+            if current_value > 0 && network_input == NetworkInput::ReadingFixedData =>
+        {
+            return BodyParserStatus::ReadChunkData
+        }
+        BodyParserStatus::ReadChunkData
+            if current_value == 0 && network_input == NetworkInput::ReadingFixedData =>
+        {
+            return BodyParserStatus::Success
+        }
+
+        _ => {
+            return BodyParserStatus::Error;
+        }
+    }
+}
+
+pub fn parse_http_body(
+    state: BodyParserStatus,
+    network_input: NetworkInput,
+    current_value: i32,
+    b: u8,
+    arena: &mut [u8],
+) -> BodyParserStatus {
+    //let n_state: BodyParserState = next_state(state, network_input, current_value);
+    match state {
+        BodyParserStatus::Success => return BodyParserStatus::Success,
+        BodyParserStatus::Error => return BodyParserStatus::Error,
+        BodyParserStatus::ReadChunkData => BodyParserStatus::ReadChunkData,
+        _ => return BodyParserStatus::Error,
+    }
 }
 
 pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) {
