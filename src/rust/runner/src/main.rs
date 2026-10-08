@@ -7,8 +7,10 @@ fn main() {
 
     let mut buf: Vec<u8> = s.as_bytes().to_vec();
     let mut vec: Vec<i32> = [0, 1, 0, 4].to_vec();
-    let _r = parse_http_header(&mut buf, &mut vec);
+    let r = parse_http_header(&mut buf, &mut vec);
     assert!(vec[0] == 3);
     assert!(vec[1] == 1);
     assert!(vec[2] == 10);
+    println!("counter is {} at the position  is {}\n", r, buf[r]);
+    assert!(buf[r] == 48)
 }
