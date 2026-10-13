@@ -68,21 +68,21 @@ pub enum BodyParserStatus {
 }
 
 pub struct BodyParserState<'a> {
-    state: BodyParserStatus,
-    networking_input: NetworkInput,
-    current_value: i16,
-    arena: &'a mut [u8],
-    arena_ptr: usize,
+    pub state: BodyParserStatus,
+    pub networking_input: NetworkInput,
+    pub current_value: i32,
+    pub arena: &'a mut [u8],
+    pub arena_ptr: usize,
 }
 
 #[repr(u8)]
 #[derive(PartialEq)]
-enum NetworkInput {
+pub enum NetworkInput {
     ReadingFixedData,
     Timeout,
 }
 
-fn wirth_http_header_parser(
+fn wirth_http_header_parser_step(
     b: &u8,
     state: &mut HeaderParserState,
     mut counter: usize,
@@ -325,7 +325,7 @@ fn next_state(state: &mut BodyParserState) {
     }
 }
 
-pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, b: u8) {
+pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
     //let n_state: BodyParserState = next_state(state, network_input, current_value);
     match state.state {
         BodyParserStatus::Success => state.state = BodyParserStatus::Success,
@@ -336,7 +336,7 @@ pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, b: u8) {
             state.current_value -= 1;
             state.state = BodyParserStatus::ReadChunkData;
             state.networking_input = NetworkInput::ReadingFixedData;
-            state.arena[state.arena_ptr] = b;
+            state.arena[state.arena_ptr] = *b;
             state.arena_ptr += 1;
         }
         _ => {}
@@ -363,7 +363,7 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> usize {
     };
 
     for b in buffer {
-        counter = wirth_http_header_parser(b, &mut state, counter, &mut rd);
+        counter = wirth_http_header_parser_step(b, &mut state, counter, &mut rd);
         if state == HeaderParserState::Success {
             //            println!("counter is {} state is {} \n", counter, counter);
             i_table[0] = rd.method.guess as i32;
@@ -376,6 +376,18 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> usize {
         }
     }
     return counter;
+}
+
+pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8]) {
+    for b in bytes {
+        parse_http_body_step(state, b);
+        if state.state == BodyParserStatus::Success {
+            println!("finished");
+            break;
+        } else {
+            println!("status is not finished\n");
+        }
+    }
 }
 
 #[cfg(test)]
