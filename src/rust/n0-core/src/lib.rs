@@ -390,6 +390,7 @@ pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8]) {
     }
 }
 
+pub fn parse_http_req(_req_bytes: &[u8], _arena: &mut [u8]) {}
 #[cfg(test)]
 mod tests {
     use super::*;
