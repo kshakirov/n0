@@ -20,9 +20,9 @@ fn main() {
     let mut state = BodyParserState {
         state: BodyParserStatus::ReadChunkData,
         networking_input: NetworkInput::ReadingFixedData,
-        current_value: vec[2],
+        current_value: vec[2] as usize,
         arena: &mut arena,
         arena_ptr: 0,
     };
-    parse_http_body(&mut state, &buf);
+    parse_http_body(&mut state, &buf, r);
 }

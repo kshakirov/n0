@@ -27,8 +27,9 @@ pub fn n_parse_http_header(buffer: napi::bindgen_prelude::Buffer, mut numbers: I
 pub fn n_parse_http_req(
     buffer_1: napi::bindgen_prelude::Buffer,
     mut buffer_2: napi::bindgen_prelude::Buffer,
+    mut numbers: Int32Array,
 ) {
     let bytes: &[u8] = buffer_1.as_ref();
     let arena: &mut [u8] = buffer_2.as_mut();
-    parse_http_req(bytes, arena);
+    parse_http_req(bytes, arena, &mut numbers);
 }

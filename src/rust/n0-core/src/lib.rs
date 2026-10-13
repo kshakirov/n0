@@ -70,7 +70,7 @@ pub enum BodyParserStatus {
 pub struct BodyParserState<'a> {
     pub state: BodyParserStatus,
     pub networking_input: NetworkInput,
-    pub current_value: i32,
+    pub current_value: usize,
     pub arena: &'a mut [u8],
     pub arena_ptr: usize,
 }
@@ -378,8 +378,8 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> usize {
     return counter;
 }
 
-pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8]) {
-    for b in bytes {
+pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counter: usize) {
+    for b in &bytes[counter..] {
         parse_http_body_step(state, b);
         if state.state == BodyParserStatus::Success {
             println!("finished");
@@ -390,7 +390,17 @@ pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8]) {
     }
 }
 
-pub fn parse_http_req(_req_bytes: &[u8], _arena: &mut [u8]) {}
+pub fn parse_http_req(req_bytes: &[u8], arena: &mut [u8], i_table: &mut [i32]) {
+    let r = parse_http_header(req_bytes, i_table);
+    let mut state = BodyParserState {
+        state: BodyParserStatus::ReadChunkData,
+        networking_input: NetworkInput::ReadingFixedData,
+        current_value: i_table[2] as usize,
+        arena: arena,
+        arena_ptr: 0,
+    };
+    parse_http_body(&mut state, req_bytes, r);
+}
 #[cfg(test)]
 mod tests {
     use super::*;
