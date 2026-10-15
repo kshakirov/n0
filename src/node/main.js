@@ -12,7 +12,8 @@ const net = require('node:net');
 const server = net.createServer((c) => {
     // 'connection' listener.
     var buffer = Buffer.alloc(0);
-    const headerData = new Int32Array([0 , 0, 0, 0]);
+    const headerData = new Int32Array([0 , 0, 0, 0]),
+	  parserState = new Int32Array([0,0,0,0,0]);
     console.log('client connected');
     c.on('data', (d) => {
 	console.log("Data from client");
@@ -20,7 +21,7 @@ const server = net.createServer((c) => {
 	buffer = Buffer.concat([buffer,d]);
 	//here on purpose we won't keep it or accumulate it must be handled by users 
 	let arena = Buffer.alloc(d.length);
-	n0.n_parse_http_req(buffer, arena, headerData);
+	n0.n_parse_http_req(buffer, arena, headerData,parserState);
 	console.log(headerData);
 	console.log(arena);
 	c.write(arena);

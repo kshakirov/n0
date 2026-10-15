@@ -390,7 +390,12 @@ pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counte
     }
 }
 
-pub fn parse_http_req(req_bytes: &[u8], arena: &mut [u8], i_table: &mut [i32]) {
+pub fn parse_http_req(
+    req_bytes: &[u8],
+    arena: &mut [u8],
+    i_table: &mut [i32],
+    parser_state: &mut [i32],
+) {
     let r = parse_http_header(req_bytes, i_table);
     let mut state = BodyParserState {
         state: BodyParserStatus::ReadChunkData,
