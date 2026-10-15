@@ -402,21 +402,32 @@ pub fn parse_http_req(
     i_table: &mut [i32],
     parser_state: &mut [i32],
 ) {
-    let (r, state) = parse_http_header(req_bytes, i_table);
-    if state == HeaderParserState::Success {
-        //phase here check if content lengt
-    } else {
-        parser_state[0] = i32::from(Phase::Header as u8);
+    let mut r: usize = 0;
+    let mut state: HeaderParserState = HeaderParserState::ReqMethod;
+    if parser_state[0] == i32::from(Phase::Header as u8) {
+        (r, state) = parse_http_header(req_bytes, i_table);
+        if state == HeaderParserState::Success {
+            //phase here check if content lengti
+            if i_table[1] > 0 {
+                parser_state[0] = i32::from(Phase::Body as u8);
+            } else {
+                parser_state[0] = i32::from(Phase::Finished as u8);
+                return;
+            }
+        } else {
+            parser_state[0] = i32::from(Phase::Header as u8);
+            return;
+        }
     }
-
-    let mut state = BodyParserState {
+    let mut body_state = BodyParserState {
         state: BodyParserStatus::ReadChunkData,
         networking_input: NetworkInput::ReadingFixedData,
         current_value: i_table[2] as usize,
         arena: arena,
         arena_ptr: 0,
     };
-    parse_http_body(&mut state, req_bytes, r);
+    parse_http_body(&mut body_state, req_bytes, r);
+    //hrere will be body state analysys
 }
 #[cfg(test)]
 mod tests {
