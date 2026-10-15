@@ -18,9 +18,12 @@ const server = net.createServer((c) => {
 	console.log("Data from client");
 	console.log(d);
 	buffer = Buffer.concat([buffer,d]);
-	n0.n_parse_http_header(buffer, headerData);
+	//here on purpose we won't keep it or accumulate it must be handled by users 
+	let arena = Buffer.alloc(d.length);
+	n0.n_parse_http_req(buffer, arena, headerData);
 	console.log(headerData);
-	c.write(buffer);
+	console.log(arena);
+	c.write(arena);
 	c.end();
 
 	

@@ -24,6 +24,7 @@ pub fn n_parse_http_header(buffer: napi::bindgen_prelude::Buffer, mut numbers: I
     parse_http_header(bytes, &mut numbers);
 }
 
+#[napi(js_name = "n_parse_http_req")]
 pub fn n_parse_http_req(
     buffer_1: napi::bindgen_prelude::Buffer,
     mut buffer_2: napi::bindgen_prelude::Buffer,
