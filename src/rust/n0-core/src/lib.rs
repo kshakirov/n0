@@ -2,7 +2,7 @@ pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
 #[derive(PartialEq)]
-enum HeaderParserState {
+pub enum HeaderParserState {
     ReqMethod,
     ReqUri,
     ReqVersion,
@@ -57,6 +57,12 @@ struct RecognizingData {
 
 const CONTENT_LENGTH: &[u8] = b"content-length";
 const TRANSFER_ENCODING: &[u8] = b"transfer-encoding";
+#[repr(u8)]
+pub enum Phase {
+    Header = 0,
+    Body = 1,
+    Finished = 2,
+}
 
 #[repr(u8)]
 #[derive(PartialEq)]
@@ -344,7 +350,7 @@ pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
     next_state(state);
 }
 
-pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> usize {
+pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> (usize, HeaderParserState) {
     let mut state = HeaderParserState::ReqMethod;
     let mut counter: usize = 0;
     let mut rd = RecognizingData {
@@ -375,7 +381,7 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> usize {
             break;
         }
     }
-    return counter;
+    return (counter, state);
 }
 
 pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counter: usize) {
@@ -396,7 +402,13 @@ pub fn parse_http_req(
     i_table: &mut [i32],
     parser_state: &mut [i32],
 ) {
-    let r = parse_http_header(req_bytes, i_table);
+    let (r, state) = parse_http_header(req_bytes, i_table);
+    if state == HeaderParserState::Success {
+        //phase here check if content lengt
+    } else {
+        parser_state[0] = i32::from(Phase::Header as u8);
+    }
+
     let mut state = BodyParserState {
         state: BodyParserStatus::ReadChunkData,
         networking_input: NetworkInput::ReadingFixedData,
