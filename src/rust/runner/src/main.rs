@@ -1,5 +1,6 @@
 use n0_core::{
-    parse_http_body, parse_http_header, BodyParserState, BodyParserStatus, NetworkInput,
+    parse_http_body, parse_http_header, parse_http_req, BodyParserState, BodyParserStatus,
+    NetworkInput,
 };
 fn main() {
     let _s1   = "GET /users/123 HTTP/1.1\r\nHost: localhost:8080\r\nUser-Agent: SclerotixTest\r\nAccept: */*\r\n\r\n";
@@ -9,7 +10,7 @@ fn main() {
 
     let mut buf: Vec<u8> = s.as_bytes().to_vec();
     let mut header_state: Vec<i32> = [0, 1, 0, 4].to_vec();
-    let mut parser_state: Vec<i32> = [0, 1, 0, 4].to_vec();
+    let mut parser_state: Vec<i32> = [0, 0, 0, 0, 0].to_vec();
     let r = parse_http_header(&mut buf, &mut header_state);
     assert!(header_state[0] == 3);
     assert!(header_state[1] == 1);
@@ -26,4 +27,5 @@ fn main() {
         arena_ptr: 0,
     };
     parse_http_body(&mut state, &buf, r);
+    parse_http_req(&buf, &mut arena, &mut header_state, &mut parser_state);
 }
