@@ -28,5 +28,45 @@ fn main() {
         arena_ptr: 0,
     };
     parse_http_body(&mut state, &buf, r);
-    parse_http_req(&buf, &mut arena, &mut header_state, &mut parser_state);
+    parse_http_req(&buf, &mut header_state, &mut parser_state, &mut state);
+
+    // Один запрос в трёх порциях, состояние общее, арена каждый раз новая.
+    let parts: [&[u8]; 3] = [
+        b"POST /users/123 HTTP/1.1\r\ncontent-length: 10\r\n\r\n0123",
+        b"456",
+        b"789",
+    ];
+    let _expected_parts: [&[u8]; 3] = [b"0123", b"456", b"789"];
+    let _expected_remaining = [6, 3, 0];
+    let mut header_state = [0i32; 4];
+    let mut parser_state = [0i32; 5];
+    let mut chunked_state = BodyParserState {
+        state: BodyParserStatus::ReadChunkData,
+        networking_input: NetworkInput::ReadingFixedData,
+        current_value: header_state[2] as usize,
+        arena: &mut arena,
+        arena_ptr: 0,
+    };
+    parse_http_req(
+        parts[0],
+        &mut header_state,
+        &mut parser_state,
+        &mut chunked_state,
+    );
+    println!("Порция {}: состояние {:?}", 0, chunked_state);
+    parse_http_req(
+        parts[1],
+        &mut header_state,
+        &mut parser_state,
+        &mut chunked_state,
+    );
+    println!("Порция {}: состояние {:?}", 1, chunked_state);
+    parse_http_req(
+        parts[2],
+        &mut header_state,
+        &mut parser_state,
+        &mut chunked_state,
+    );
+    assert!(parser_state[0] == 2);
+    println!("Порция {}: состояние {:?}", 2, chunked_state);
 }
