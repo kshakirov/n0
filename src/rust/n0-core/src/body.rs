@@ -63,6 +63,7 @@ pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
 }
 
 pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counter: usize) {
+    state.arena_ptr = 0;
     for b in &bytes[counter..] {
         parse_http_body_step(state, b);
         if state.state == BodyParserStatus::Success {

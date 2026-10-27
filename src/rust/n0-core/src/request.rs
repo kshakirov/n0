@@ -19,8 +19,9 @@ pub fn parse_http_req(
     body_parser_state: &mut BodyParserState,
 ) {
     let mut r: usize = 0;
-    let mut state: HeaderParserState = HeaderParserState::ReqMethod;
+
     if parser_state[PHASE] == i32::from(Phase::Header as u8) {
+        let state;
         (r, state) = parse_http_header(req_bytes, i_table);
         if state == HeaderParserState::Success {
             //phase here check if content lengti

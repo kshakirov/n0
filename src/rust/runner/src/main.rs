@@ -54,6 +54,9 @@ fn main() {
         &mut chunked_state,
     );
     println!("Порция {}: состояние {:?}", 0, chunked_state);
+    assert_eq!(&chunked_state.arena[..chunked_state.arena_ptr], b"0123");
+    let mut second_arena = [0u8; 3];
+    chunked_state.arena = &mut second_arena;
     parse_http_req(
         parts[1],
         &mut header_state,
@@ -61,6 +64,9 @@ fn main() {
         &mut chunked_state,
     );
     println!("Порция {}: состояние {:?}", 1, chunked_state);
+    assert_eq!(&chunked_state.arena[..chunked_state.arena_ptr], b"456");
+    let mut third_arena = [0u8; 3];
+    chunked_state.arena = &mut third_arena;
     parse_http_req(
         parts[2],
         &mut header_state,
@@ -68,5 +74,6 @@ fn main() {
         &mut chunked_state,
     );
     assert!(parser_state[0] == 2);
+    assert_eq!(&chunked_state.arena[..chunked_state.arena_ptr], b"789");
     println!("Порция {}: состояние {:?}", 2, chunked_state);
 }
