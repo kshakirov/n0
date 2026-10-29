@@ -161,6 +161,40 @@ pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
                 state.state = BodyParserStatus::Error;
             }
         }
+        BodyParserStatus::ReadChunkData => {
+            state.current_value -= 1;
+            state.state = BodyParserStatus::ReadChunkData;
+            state.networking_input = NetworkInput::ChunkDataByteAccepted;
+            state.arena[state.arena_ptr] = *b;
+            state.arena_ptr += 1;
+        }
+
+        BodyParserStatus::ExpectChunkCr if *b == 13 => {
+            state.networking_input = NetworkInput::CrAccepted;
+        }
+        BodyParserStatus::ExpectChunkCr => {
+            state.networking_input = NetworkInput::InvalidInput;
+        }
+
+        BodyParserStatus::ExpectChunkLf if *b == 10 => {
+            state.networking_input = NetworkInput::LfAccepted;
+        }
+        BodyParserStatus::ExpectChunkLf => {
+            state.networking_input = NetworkInput::InvalidInput;
+        }
+        BodyParserStatus::ExpectFinalCr if *b == 13 => {
+            state.networking_input = NetworkInput::CrAccepted;
+        }
+        BodyParserStatus::ExpectFinalCr => {
+            state.networking_input = NetworkInput::InvalidInput;
+        }
+        BodyParserStatus::ExpectFinalLf if *b == 10 => {
+            state.networking_input = NetworkInput::LfAccepted;
+        }
+        BodyParserStatus::ExpectFinalLf => {
+            state.networking_input = NetworkInput::InvalidInput;
+        }
+
         _ => {}
     }
     next_state(state);

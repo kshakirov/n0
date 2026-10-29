@@ -1,0 +1,237 @@
+-- Формальная модель текущего HttpBodyParserAutomaton.
+--
+-- Граница модели начинается после разбора заголовков: оболочка уже выбрала
+-- READ_FIXED_BODY либо READ_CHUNK_SIZE и создала автомат. Один переход модели
+-- соответствует одному вызову runEngine(byte). Отсутствие вызова не является
+-- переходом, поэтому NEED_MORE_DATA сохранено в алфавите Java, но не порождается
+-- операционным слоем модели.
+--
+-- MAX_VALUE и MAX_ARENA делают модель конечной. Ограничения ниже фиксируют
+-- условие альфы: размер тела и сумма байтов чанков помещаются в эти границы.
+-- Проверка переполнения currentValue и арены остаётся отдельным долгом Java.
+
+MODULE main
+
+CONSTANTS
+  NEED_MORE_DATA,
+  CHUNK_SIZE_DIGIT_ACCEPTED,
+  ZERO_CHUNK_SIZE_TERMINATED,
+  CHUNK_SIZE_TERMINATED,
+  CR_ACCEPTED,
+  LF_ACCEPTED,
+  FIXED_BODY_BYTE_ACCEPTED,
+  CHUNK_DATA_BYTE_ACCEPTED,
+  INVALID_INPUT;
+
+DEFINE
+  MAX_VALUE := 31;
+  MAX_ARENA := 31;
+
+  -- Операционный слой классифицирует ровно один предложенный байт.
+  op_event := case
+    state = READ_CHUNK_SIZE & offered_byte = HEX_DIGIT
+      : CHUNK_SIZE_DIGIT_ACCEPTED;
+    state = READ_CHUNK_SIZE & offered_byte = CR & current_value = 0
+      : ZERO_CHUNK_SIZE_TERMINATED;
+    state = READ_CHUNK_SIZE & offered_byte = CR & current_value > 0
+      : CHUNK_SIZE_TERMINATED;
+
+    state = EXPECT_CHUNK_CR & offered_byte = CR : CR_ACCEPTED;
+    state = EXPECT_CHUNK_LF & offered_byte = LF : LF_ACCEPTED;
+    state = EXPECT_FINAL_CR & offered_byte = CR : CR_ACCEPTED;
+    state = EXPECT_FINAL_LF & offered_byte = LF : LF_ACCEPTED;
+
+    state = READ_FIXED_BODY : FIXED_BODY_BYTE_ACCEPTED;
+    state = READ_CHUNK_DATA : CHUNK_DATA_BYTE_ACCEPTED;
+    TRUE                   : INVALID_INPUT;
+  esac;
+
+  body_byte_consumed :=
+    (state = READ_FIXED_BODY | state = READ_CHUNK_DATA) &
+    current_value > 0;
+
+FROZENVAR
+  entry_mode   : {FIXED, CHUNKED};
+  fixed_length : 1..MAX_VALUE;
+
+VAR
+  -- В состояниях чтения тела любой элемент алфавита является байтом данных.
+  offered_byte : {HEX_DIGIT, CR, LF, DATA};
+  hex_value    : 0..15;
+
+  state : {
+    READ_CHUNK_SIZE,
+    EXPECT_CHUNK_CR,
+    EXPECT_CHUNK_LF,
+    EXPECT_FINAL_CR,
+    EXPECT_FINAL_LF,
+    READ_FIXED_BODY,
+    READ_CHUNK_DATA,
+    SUCCESS,
+    ERROR
+  };
+
+  delimiter_context : {NO_DELIMITER, AFTER_SIZE, AFTER_DATA, AFTER_ZERO};
+  current_value     : 0..MAX_VALUE;
+  arena_ptr         : 0..MAX_ARENA;
+
+  -- Наблюдатели только для проверки отношения соседних тактов.
+  previous_current_value : 0..MAX_VALUE;
+  previous_arena_ptr     : 0..MAX_ARENA;
+  body_byte_was_consumed : boolean;
+
+-- Допущения ограниченной альфы: Java пока не обрабатывает эти переполнения.
+TRANS
+  (state = READ_CHUNK_SIZE & offered_byte = HEX_DIGIT) ->
+    current_value <= (MAX_VALUE - hex_value) / 16
+
+INVAR
+  (state = READ_FIXED_BODY | state = READ_CHUNK_DATA) ->
+    arena_ptr < MAX_ARENA
+
+ASSIGN
+  init(state) := case
+    entry_mode = FIXED   : READ_FIXED_BODY;
+    entry_mode = CHUNKED : READ_CHUNK_SIZE;
+  esac;
+
+  init(delimiter_context) := NO_DELIMITER;
+  init(current_value) := case
+    entry_mode = FIXED   : fixed_length;
+    entry_mode = CHUNKED : 0;
+  esac;
+  init(arena_ptr) := 0;
+  init(previous_current_value) := 0;
+  init(previous_arena_ptr) := 0;
+  init(body_byte_was_consumed) := FALSE;
+
+  next(state) := case
+    state = SUCCESS : SUCCESS;
+    state = ERROR   : ERROR;
+
+    state = READ_FIXED_BODY & op_event = FIXED_BODY_BYTE_ACCEPTED &
+      current_value > 1 : READ_FIXED_BODY;
+    state = READ_FIXED_BODY & op_event = FIXED_BODY_BYTE_ACCEPTED &
+      current_value = 1 : SUCCESS;
+
+    state = READ_CHUNK_SIZE & op_event = CHUNK_SIZE_DIGIT_ACCEPTED
+      : READ_CHUNK_SIZE;
+    state = READ_CHUNK_SIZE & op_event = ZERO_CHUNK_SIZE_TERMINATED
+      : EXPECT_CHUNK_LF;
+    state = READ_CHUNK_SIZE & op_event = CHUNK_SIZE_TERMINATED
+      : EXPECT_CHUNK_LF;
+
+    state = EXPECT_CHUNK_LF & op_event = LF_ACCEPTED &
+      delimiter_context = AFTER_SIZE : READ_CHUNK_DATA;
+    state = EXPECT_CHUNK_LF & op_event = LF_ACCEPTED &
+      delimiter_context = AFTER_DATA : READ_CHUNK_SIZE;
+    state = EXPECT_CHUNK_LF & op_event = LF_ACCEPTED &
+      delimiter_context = AFTER_ZERO : EXPECT_FINAL_CR;
+
+    state = READ_CHUNK_DATA & op_event = CHUNK_DATA_BYTE_ACCEPTED &
+      current_value > 1 : READ_CHUNK_DATA;
+    state = READ_CHUNK_DATA & op_event = CHUNK_DATA_BYTE_ACCEPTED &
+      current_value = 1 : EXPECT_CHUNK_CR;
+
+    state = EXPECT_CHUNK_CR & op_event = CR_ACCEPTED : EXPECT_CHUNK_LF;
+    state = EXPECT_FINAL_CR & op_event = CR_ACCEPTED : EXPECT_FINAL_LF;
+    state = EXPECT_FINAL_LF & op_event = LF_ACCEPTED : SUCCESS;
+
+    TRUE : ERROR;
+  esac;
+
+  next(delimiter_context) := case
+    state = READ_CHUNK_SIZE & op_event = ZERO_CHUNK_SIZE_TERMINATED
+      : AFTER_ZERO;
+    state = READ_CHUNK_SIZE & op_event = CHUNK_SIZE_TERMINATED
+      : AFTER_SIZE;
+    state = EXPECT_CHUNK_CR & op_event = CR_ACCEPTED
+      : AFTER_DATA;
+    TRUE : delimiter_context;
+  esac;
+
+  next(current_value) := case
+    state = READ_CHUNK_SIZE & op_event = CHUNK_SIZE_DIGIT_ACCEPTED
+      : (current_value * 16 + hex_value) mod (MAX_VALUE + 1);
+    body_byte_consumed
+      : current_value - 1;
+    TRUE : current_value;
+  esac;
+
+  next(arena_ptr) := case
+    body_byte_consumed : (arena_ptr + 1) mod (MAX_ARENA + 1);
+    TRUE               : arena_ptr;
+  esac;
+
+  next(previous_current_value) := current_value;
+  next(previous_arena_ptr) := arena_ptr;
+  next(body_byte_was_consumed) := body_byte_consumed;
+
+------------------------------------------------------------------
+-- Инварианты безопасности
+------------------------------------------------------------------
+
+-- Терминальные состояния поглощающие.
+SPEC AG (state = SUCCESS -> AX state = SUCCESS)
+SPEC AG (state = ERROR -> AX state = ERROR)
+
+-- Принятый на прошлом такте байт тела уменьшил общий регистр и увеличил
+-- указатель арены ровно на единицу.
+SPEC AG (body_byte_was_consumed ->
+         current_value = previous_current_value - 1)
+SPEC AG (body_byte_was_consumed ->
+         arena_ptr = previous_arena_ptr + 1)
+
+-- Размеры и разделители никогда не попадают в арену.
+LTLSPEC G ((state = READ_CHUNK_SIZE | state = EXPECT_CHUNK_CR |
+            state = EXPECT_CHUNK_LF | state = EXPECT_FINAL_CR |
+            state = EXPECT_FINAL_LF) -> X(arena_ptr) = arena_ptr)
+
+-- Последний байт fixed-length тела завершает автомат.
+LTLSPEC G (state = READ_FIXED_BODY & current_value = 1 ->
+           X(state) = SUCCESS & X(current_value) = 0)
+
+-- Последний байт чанка переводит автомат к CR после данных.
+LTLSPEC G (state = READ_CHUNK_DATA & current_value = 1 ->
+           X(state) = EXPECT_CHUNK_CR & X(current_value) = 0)
+
+-- Размер чанка остаётся в current_value и затем становится счётчиком данных.
+LTLSPEC G (state = EXPECT_CHUNK_LF & delimiter_context = AFTER_SIZE &
+           offered_byte = LF ->
+           X(state) = READ_CHUNK_DATA & X(current_value) = current_value)
+
+-- После данных новый размер начинается с нулевого current_value.
+LTLSPEC G (state = EXPECT_CHUNK_LF & delimiter_context = AFTER_DATA &
+           offered_byte = LF ->
+           X(state) = READ_CHUNK_SIZE & X(current_value) = 0)
+
+-- Нулевой чанк требует полного финального CRLF.
+LTLSPEC G (state = READ_CHUNK_SIZE & offered_byte = CR &
+           current_value = 0 ->
+           X(state) = EXPECT_CHUNK_LF &
+           X(delimiter_context) = AFTER_ZERO)
+LTLSPEC G (state = EXPECT_CHUNK_LF & delimiter_context = AFTER_ZERO &
+           offered_byte = LF -> X(state) = EXPECT_FINAL_CR)
+LTLSPEC G (state = EXPECT_FINAL_CR & offered_byte = CR ->
+           X(state) = EXPECT_FINAL_LF)
+LTLSPEC G (state = EXPECT_FINAL_LF & offered_byte = LF ->
+           X(state) = SUCCESS)
+
+-- Ошибочный разделитель переводит автомат в ERROR.
+LTLSPEC G (state = EXPECT_CHUNK_CR & offered_byte != CR -> X(state) = ERROR)
+LTLSPEC G ((state = EXPECT_CHUNK_LF | state = EXPECT_FINAL_LF) &
+           offered_byte != LF -> X(state) = ERROR)
+LTLSPEC G (state = EXPECT_FINAL_CR & offered_byte != CR -> X(state) = ERROR)
+
+------------------------------------------------------------------
+-- Свидетели достижимости: для каждой формулы nuXmv должен дать counterexample.
+------------------------------------------------------------------
+
+SPEC !EF (entry_mode = FIXED & state = SUCCESS)
+SPEC !EF (entry_mode = CHUNKED & state = READ_CHUNK_DATA)
+SPEC !EF (entry_mode = CHUNKED & state = READ_CHUNK_SIZE &
+          delimiter_context = AFTER_DATA & arena_ptr > 0)
+SPEC !EF (entry_mode = CHUNKED & state = EXPECT_FINAL_CR)
+SPEC !EF (entry_mode = CHUNKED & state = EXPECT_FINAL_LF)
+SPEC !EF (entry_mode = CHUNKED & state = SUCCESS)
+SPEC !EF (state = ERROR)
