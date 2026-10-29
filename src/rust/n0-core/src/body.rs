@@ -111,6 +111,16 @@ fn next_state(state: &mut BodyParserState) {
             state.state = BodyParserStatus::ExpectChunkCr;
         }
 
+        BodyParserStatus::ExpectChunkCr if state.networking_input == NetworkInput::CrAccepted => {
+            state.state = BodyParserStatus::ExpectChunkLf;
+        }
+        BodyParserStatus::ExpectFinalCr if state.networking_input == NetworkInput::CrAccepted => {
+            state.state = BodyParserStatus::ExpectFinalLf;
+        }
+        BodyParserStatus::ExpectFinalLf if state.networking_input == NetworkInput::LfAccepted => {
+            state.state = BodyParserStatus::Success;
+        }
+
         _ => {
             state.state = BodyParserStatus::Error;
         }
