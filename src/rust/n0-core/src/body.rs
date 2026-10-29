@@ -3,8 +3,13 @@
 pub enum BodyParserStatus {
     ExpectChunkSize,
     ReadChunkData,
+    ReadChunkSize,
     Success,
     Error,
+    ExpectChunkCr,
+    ExpectChunkLf,
+    ExpectFinalCr,
+    ExpectFinalLf,
 }
 #[derive(Debug)]
 pub struct BodyParserState<'a> {
@@ -13,6 +18,7 @@ pub struct BodyParserState<'a> {
     pub current_value: usize,
     pub arena: &'a mut [u8],
     pub arena_ptr: usize,
+    pub delimiter_context: DelimiterContext,
 }
 
 #[repr(u8)]
@@ -20,6 +26,24 @@ pub struct BodyParserState<'a> {
 pub enum NetworkInput {
     ReadingFixedData,
     Timeout,
+    NeedMoreData,
+    ChunkSizeDigitAccepted,
+    ZeroChunkSizeTerminated,
+    ChunkSizeTerminated,
+    CrAccepted,
+    LfAccepted,
+    FixedBodyByteAccepted,
+    ChunkDataByteAccepted,
+    InvalidInput,
+}
+
+#[repr(u8)]
+#[derive(PartialEq, Debug)]
+pub enum DelimiterContext {
+    NoDelimiter,
+    AfterSize,
+    AfterData,
+    AfterZero,
 }
 
 fn next_state(state: &mut BodyParserState) {
@@ -35,6 +59,43 @@ fn next_state(state: &mut BodyParserState) {
                 && state.networking_input == NetworkInput::ReadingFixedData =>
         {
             state.state = BodyParserStatus::Success;
+        }
+        BodyParserStatus::ReadChunkSize
+            if state.networking_input == NetworkInput::ChunkSizeDigitAccepted =>
+        {
+            state.state = BodyParserStatus::ReadChunkSize
+        }
+
+        BodyParserStatus::ReadChunkSize
+            if state.networking_input == NetworkInput::ChunkSizeTerminated =>
+        {
+            state.state = BodyParserStatus::ExpectChunkLf
+        }
+        BodyParserStatus::ReadChunkSize
+            if state.networking_input == NetworkInput::ZeroChunkSizeTerminated =>
+        {
+            state.state = BodyParserStatus::ExpectChunkLf
+        }
+
+        BodyParserStatus::ExpectChunkLf
+            if state.networking_input == NetworkInput::LfAccepted
+                && state.delimiter_context == DelimiterContext::AfterSize =>
+        {
+            state.state = BodyParserStatus::ReadChunkData;
+        }
+
+        BodyParserStatus::ExpectChunkLf
+            if state.networking_input == NetworkInput::LfAccepted
+                && state.delimiter_context == DelimiterContext::AfterData =>
+        {
+            state.state = BodyParserStatus::ReadChunkSize;
+        }
+
+        BodyParserStatus::ExpectChunkLf
+            if state.networking_input == NetworkInput::LfAccepted
+                && state.delimiter_context == DelimiterContext::AfterZero =>
+        {
+            state.state = BodyParserStatus::ExpectFinalCr;
         }
 
         _ => {
@@ -57,9 +118,42 @@ pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
             state.arena[state.arena_ptr] = *b;
             state.arena_ptr += 1;
         }
+        BodyParserStatus::ReadChunkSize => {
+            if *b == b'\r' {
+                state.networking_input = if state.current_value == 0 {
+                    NetworkInput::ZeroChunkSizeTerminated
+                } else {
+                    NetworkInput::ChunkSizeTerminated
+                };
+            } else if *b > b'0' && *b < b'd' {
+                let v = from_ascii_to_hex(*b);
+                if v > -1 {
+                    state.current_value = 16 * state.current_value + (v as usize);
+                    state.networking_input = NetworkInput::ChunkSizeDigitAccepted;
+                } else {
+                    state.state = BodyParserStatus::Error;
+                }
+            } else {
+                state.state = BodyParserStatus::Error;
+            }
+        }
         _ => {}
     }
     next_state(state);
+}
+
+fn from_ascii_to_hex(c: u8) -> i32 {
+    let v: i32;
+    if c >= b'0' && c <= b'9' {
+        v = i32::from(c as u8) - 48
+    } else if c >= b'A' && c <= b'F' {
+        v = i32::from(c as u8) - 65 + 10
+    } else if c >= b'a' && c <= b'f' {
+        v = i32::from(c as u8) - 97 + 10
+    } else {
+        v = -1
+    };
+    return v;
 }
 
 pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counter: usize) {

@@ -1,6 +1,6 @@
 use n0_core::{
     parse_http_body, parse_http_header, parse_http_req, BodyParserState, BodyParserStatus,
-    HeaderParserState, NetworkInput,
+    DelimiterContext, HeaderParserState, NetworkInput,
 };
 fn main() {
     let _s1   = "GET /users/123 HTTP/1.1\r\nHost: localhost:8080\r\nUser-Agent: SclerotixTest\r\nAccept: */*\r\n\r\n";
@@ -26,6 +26,7 @@ fn main() {
         current_value: header_state[2] as usize,
         arena: &mut arena,
         arena_ptr: 0,
+        delimiter_context: DelimiterContext::NoDelimiter,
     };
     parse_http_body(&mut state, &buf, r);
     parse_http_req(&buf, &mut header_state, &mut parser_state, &mut state);
@@ -46,6 +47,7 @@ fn main() {
         current_value: header_state[2] as usize,
         arena: &mut arena,
         arena_ptr: 0,
+        delimiter_context: DelimiterContext::NoDelimiter,
     };
     parse_http_req(
         parts[0],
@@ -76,4 +78,20 @@ fn main() {
     assert!(parser_state[0] == 2);
     assert_eq!(&chunked_state.arena[..chunked_state.arena_ptr], b"789");
     println!("Порция {}: состояние {:?}", 2, chunked_state);
+
+    // Один чанк с телом abc и завершающий нулевой чанк.
+    let chunk = b"3\r\nabc\r\n0\r\n\r\n";
+    let mut arena = [0u8; 3];
+    let mut state = BodyParserState {
+        state: BodyParserStatus::ReadChunkSize,
+        networking_input: NetworkInput::NeedMoreData,
+        current_value: 0,
+        arena: &mut arena,
+        arena_ptr: 0,
+        delimiter_context: DelimiterContext::NoDelimiter,
+    };
+    parse_http_body(&mut state, chunk, 0);
+    println!("Один чанк: {:?}", state);
+    assert_eq!(state.state, BodyParserStatus::Success);
+    assert_eq!(&state.arena[..state.arena_ptr], b"abc");
 }
