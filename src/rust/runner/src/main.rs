@@ -21,7 +21,7 @@ fn main() {
 
     let mut arena = vec![0u8; 10];
     let mut state = BodyParserState {
-        state: BodyParserStatus::ReadChunkData,
+        state: BodyParserStatus::ReadFixedData,
         networking_input: NetworkInput::ReadingFixedData,
         current_value: header_state[2] as usize,
         arena: &mut arena,
@@ -42,7 +42,7 @@ fn main() {
     let mut header_state = [0i32; 4];
     let mut parser_state = [0i32; 5];
     let mut chunked_state = BodyParserState {
-        state: BodyParserStatus::ReadChunkData,
+        state: BodyParserStatus::ReadFixedData,
         networking_input: NetworkInput::ReadingFixedData,
         current_value: header_state[2] as usize,
         arena: &mut arena,

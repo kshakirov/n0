@@ -27,7 +27,7 @@ pub fn parse_http_req(
             //phase here check if content lengti
             if i_table[CONTENT_LENGTH] > 0 {
                 parser_state[PHASE] = i32::from(Phase::Body as u8);
-                body_parser_state.state = BodyParserStatus::ReadChunkData;
+                body_parser_state.state = BodyParserStatus::ReadFixedData;
                 body_parser_state.networking_input = NetworkInput::ReadingFixedData;
                 body_parser_state.current_value = i_table[CURRENT_VALUE] as usize;
                 //                body_parser_state.arena = [0u8; 10].as_mut_ptr();

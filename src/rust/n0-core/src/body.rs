@@ -3,6 +3,7 @@
 pub enum BodyParserStatus {
     ExpectChunkSize,
     ReadChunkData,
+    ReadFixedData,
     ReadChunkSize,
     Success,
     Error,
@@ -48,13 +49,13 @@ pub enum DelimiterContext {
 
 fn next_state(state: &mut BodyParserState) {
     match state.state {
-        BodyParserStatus::ReadChunkData
+        BodyParserStatus::ReadFixedData
             if state.current_value > 0
                 && state.networking_input == NetworkInput::ReadingFixedData =>
         {
-            state.state = BodyParserStatus::ReadChunkData;
+            state.state = BodyParserStatus::ReadFixedData;
         }
-        BodyParserStatus::ReadChunkData
+        BodyParserStatus::ReadFixedData
             if state.current_value == 0
                 && state.networking_input == NetworkInput::ReadingFixedData =>
         {
@@ -134,9 +135,9 @@ pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
         BodyParserStatus::Error => {
             state.state = BodyParserStatus::Error;
         }
-        BodyParserStatus::ReadChunkData => {
+        BodyParserStatus::ReadFixedData => {
             state.current_value -= 1;
-            state.state = BodyParserStatus::ReadChunkData;
+            state.state = BodyParserStatus::ReadFixedData;
             state.networking_input = NetworkInput::ReadingFixedData;
             state.arena[state.arena_ptr] = *b;
             state.arena_ptr += 1;
