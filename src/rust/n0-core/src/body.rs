@@ -98,6 +98,19 @@ fn next_state(state: &mut BodyParserState) {
             state.state = BodyParserStatus::ExpectFinalCr;
         }
 
+        BodyParserStatus::ReadChunkData
+            if state.networking_input == NetworkInput::ChunkDataByteAccepted
+                && state.current_value > 1 =>
+        {
+            state.state = BodyParserStatus::ReadChunkData;
+        }
+        BodyParserStatus::ReadChunkData
+            if state.networking_input == NetworkInput::ChunkDataByteAccepted
+                && state.current_value == 1 =>
+        {
+            state.state = BodyParserStatus::ExpectChunkCr;
+        }
+
         _ => {
             state.state = BodyParserStatus::Error;
         }
