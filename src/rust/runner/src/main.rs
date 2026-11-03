@@ -77,7 +77,7 @@ fn main() {
     );
     assert!(parser_state[0] == 2);
     assert_eq!(&chunked_state.arena[..chunked_state.arena_ptr], b"789");
-    println!("Порция {}: состояние {:?}", 2, chunked_state);
+    println!("Finished :Порция {}: состояние {:?} ", 2, chunked_state);
 
     // Один чанк с телом abc и завершающий нулевой чанк.
     let chunk = b"3\r\nabc\r\n0\r\n\r\n";

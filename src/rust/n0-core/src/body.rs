@@ -64,18 +64,20 @@ fn next_state(state: &mut BodyParserState) {
         BodyParserStatus::ReadChunkSize
             if state.networking_input == NetworkInput::ChunkSizeDigitAccepted =>
         {
-            state.state = BodyParserStatus::ReadChunkSize
+            state.state = BodyParserStatus::ReadChunkSize;
         }
 
         BodyParserStatus::ReadChunkSize
             if state.networking_input == NetworkInput::ChunkSizeTerminated =>
         {
-            state.state = BodyParserStatus::ExpectChunkLf
+            state.state = BodyParserStatus::ExpectChunkLf;
+            state.delimiter_context = DelimiterContext::AfterSize;
         }
         BodyParserStatus::ReadChunkSize
             if state.networking_input == NetworkInput::ZeroChunkSizeTerminated =>
         {
-            state.state = BodyParserStatus::ExpectChunkLf
+            state.state = BodyParserStatus::ExpectChunkLf;
+            state.delimiter_context = DelimiterContext::AfterZero;
         }
 
         BodyParserStatus::ExpectChunkLf
@@ -101,19 +103,20 @@ fn next_state(state: &mut BodyParserState) {
 
         BodyParserStatus::ReadChunkData
             if state.networking_input == NetworkInput::ChunkDataByteAccepted
-                && state.current_value > 1 =>
+                && state.current_value > 0 =>
         {
             state.state = BodyParserStatus::ReadChunkData;
         }
         BodyParserStatus::ReadChunkData
             if state.networking_input == NetworkInput::ChunkDataByteAccepted
-                && state.current_value == 1 =>
+                && state.current_value == 0 =>
         {
             state.state = BodyParserStatus::ExpectChunkCr;
         }
 
         BodyParserStatus::ExpectChunkCr if state.networking_input == NetworkInput::CrAccepted => {
             state.state = BodyParserStatus::ExpectChunkLf;
+            state.delimiter_context = DelimiterContext::AfterData;
         }
         BodyParserStatus::ExpectFinalCr if state.networking_input == NetworkInput::CrAccepted => {
             state.state = BodyParserStatus::ExpectFinalLf;
@@ -130,6 +133,10 @@ fn next_state(state: &mut BodyParserState) {
 
 pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
     //let n_state: BodyParserState = next_state(state, network_input, current_value);
+    println!(
+        "entry {} state {:?} input {:?} delimiter {:?}",
+        *b, state.state, state.networking_input, state.delimiter_context
+    );
     match state.state {
         BodyParserStatus::Success => state.state = BodyParserStatus::Success,
         BodyParserStatus::Error => {
@@ -143,13 +150,14 @@ pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
             state.arena_ptr += 1;
         }
         BodyParserStatus::ReadChunkSize => {
+            eprint!("zero {}", *b);
             if *b == b'\r' {
                 state.networking_input = if state.current_value == 0 {
                     NetworkInput::ZeroChunkSizeTerminated
                 } else {
                     NetworkInput::ChunkSizeTerminated
                 };
-            } else if *b > b'0' && *b < b'd' {
+            } else if *b >= b'0' && *b <= b'd' {
                 let v = from_ascii_to_hex(*b);
                 if v > -1 {
                     state.current_value = 16 * state.current_value + (v as usize);
@@ -162,6 +170,7 @@ pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
             }
         }
         BodyParserStatus::ReadChunkData => {
+            println!("read  {} current_value {} ", *b, state.current_value);
             state.current_value -= 1;
             state.state = BodyParserStatus::ReadChunkData;
             state.networking_input = NetworkInput::ChunkDataByteAccepted;
@@ -177,6 +186,7 @@ pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
         }
 
         BodyParserStatus::ExpectChunkLf if *b == 10 => {
+            println!("here I am ");
             state.networking_input = NetworkInput::LfAccepted;
         }
         BodyParserStatus::ExpectChunkLf => {
