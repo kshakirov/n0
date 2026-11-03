@@ -133,10 +133,7 @@ fn next_state(state: &mut BodyParserState) {
 
 pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
     //let n_state: BodyParserState = next_state(state, network_input, current_value);
-    println!(
-        "entry {} state {:?} input {:?} delimiter {:?}",
-        *b, state.state, state.networking_input, state.delimiter_context
-    );
+
     match state.state {
         BodyParserStatus::Success => state.state = BodyParserStatus::Success,
         BodyParserStatus::Error => {
@@ -150,7 +147,6 @@ pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
             state.arena_ptr += 1;
         }
         BodyParserStatus::ReadChunkSize => {
-            eprint!("zero {}", *b);
             if *b == b'\r' {
                 state.networking_input = if state.current_value == 0 {
                     NetworkInput::ZeroChunkSizeTerminated
@@ -170,7 +166,6 @@ pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
             }
         }
         BodyParserStatus::ReadChunkData => {
-            println!("read  {} current_value {} ", *b, state.current_value);
             state.current_value -= 1;
             state.state = BodyParserStatus::ReadChunkData;
             state.networking_input = NetworkInput::ChunkDataByteAccepted;
@@ -186,7 +181,6 @@ pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
         }
 
         BodyParserStatus::ExpectChunkLf if *b == 10 => {
-            println!("here I am ");
             state.networking_input = NetworkInput::LfAccepted;
         }
         BodyParserStatus::ExpectChunkLf => {
