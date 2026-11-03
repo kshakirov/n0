@@ -28,10 +28,10 @@ enum Method {
 
 #[repr(u8)]
 #[derive(PartialEq)]
-enum ContentType {
+pub enum ContentType {
     NoContent,
     ContentLength,
-    TransderEncoding,
+    TransferEncoding,
 }
 
 struct MethodData {
@@ -124,7 +124,7 @@ fn wirth_http_header_parser_step(
                 rd.headers.content_type = ContentType::ContentLength;
             }
             if !rd.headers.transfer_encoding_failed && rd.headers.transfer_encoding_match == 17 {
-                rd.headers.content_type = ContentType::TransderEncoding;
+                rd.headers.content_type = ContentType::TransferEncoding;
             }
             rd.headers.content_length_match = 0;
             rd.headers.transfer_encoding_match = 0;

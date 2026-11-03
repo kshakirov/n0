@@ -6,7 +6,7 @@ pub use body::{
     parse_http_body, parse_http_body_step, BodyParserState, BodyParserStatus, DelimiterContext,
     NetworkInput,
 };
-pub use header::{parse_http_header, HeaderParserState};
+pub use header::{parse_http_header, ContentType, HeaderParserState};
 pub use request::{parse_http_req, Phase};
 
 pub fn add(left: u64, right: u64) -> u64 {

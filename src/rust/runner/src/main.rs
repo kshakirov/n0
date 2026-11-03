@@ -1,6 +1,6 @@
 use n0_core::{
     parse_http_body, parse_http_header, parse_http_req, BodyParserState, BodyParserStatus,
-    DelimiterContext, HeaderParserState, NetworkInput,
+    ContentType, DelimiterContext, HeaderParserState, NetworkInput,
 };
 fn main() {
     let _s1   = "GET /users/123 HTTP/1.1\r\nHost: localhost:8080\r\nUser-Agent: SclerotixTest\r\nAccept: */*\r\n\r\n";
@@ -81,6 +81,15 @@ fn main() {
 
     // Один чанк с телом abc и завершающий нулевой чанк.
     let chunk = b"3\r\nabc\r\n0\r\n\r\n";
+    let request = b"POST /users/123 HTTP/1.1\r\nHost: localhost:9092\r\ntransfer-encoding: chunked\r\n\r\n3\r\nabc\r\n2\r\nde\r\n0\r\n\r\n";
+
+    let (r, state) = parse_http_header(request, &mut header_state);
+    assert!(state == HeaderParserState::Success);
+    assert!(header_state[0] == 3);
+    assert!(header_state[1] == 0);
+    assert!(header_state[2] == 0);
+    println!("counter is {} at the position  is {}\n", r, buf[r]);
+
     let mut arena = [0u8; 3];
     let mut state = BodyParserState {
         state: BodyParserStatus::ReadChunkSize,
@@ -94,4 +103,59 @@ fn main() {
     println!("Один чанк: {:?}", state);
     assert_eq!(state.state, BodyParserStatus::Success);
     assert_eq!(&state.arena[..state.arena_ptr], b"abc");
+
+    // Два HTTP-чанка в одном входном буфере.
+    let chunks = b"3\r\nabc\r\n2\r\nde\r\n0\r\n\r\n";
+    let mut arena = [0u8; 5];
+    let mut state = BodyParserState {
+        state: BodyParserStatus::ReadChunkSize,
+        networking_input: NetworkInput::NeedMoreData,
+        current_value: 0,
+        arena: &mut arena,
+        arena_ptr: 0,
+        delimiter_context: DelimiterContext::NoDelimiter,
+    };
+    parse_http_body(&mut state, chunks, 0);
+    assert_eq!(state.state, BodyParserStatus::Success);
+    assert_eq!(&state.arena[..state.arena_ptr], b"abcde");
+    println!("Два чанка: abcde, Success");
+
+    // Тот же вход по сетевым порциям. Каждая получает свежую арену.
+    let mut first_arena = [0u8; 3];
+    let mut state = BodyParserState {
+        state: BodyParserStatus::ReadChunkSize,
+        networking_input: NetworkInput::NeedMoreData,
+        current_value: 0,
+        arena: &mut first_arena,
+        arena_ptr: 0,
+        delimiter_context: DelimiterContext::NoDelimiter,
+    };
+    parse_http_body(&mut state, b"3\r", 0);
+    assert_eq!(state.state, BodyParserStatus::ExpectChunkLf);
+    assert_eq!(state.arena_ptr, 0);
+
+    let mut second_arena = [0u8; 3];
+    state.arena = &mut second_arena;
+    parse_http_body(&mut state, b"\nab", 0);
+    assert_eq!(&state.arena[..state.arena_ptr], b"ab");
+    assert_eq!(state.current_value, 1);
+
+    let mut third_arena = [0u8; 3];
+    state.arena = &mut third_arena;
+    parse_http_body(&mut state, b"c\r\n2\r\nd", 0);
+    assert_eq!(&state.arena[..state.arena_ptr], b"cd");
+    assert_eq!(state.current_value, 1);
+
+    let mut fourth_arena = [0u8; 3];
+    state.arena = &mut fourth_arena;
+    parse_http_body(&mut state, b"e\r\n0\r\n\r", 0);
+    assert_eq!(&state.arena[..state.arena_ptr], b"e");
+    assert_eq!(state.state, BodyParserStatus::ExpectFinalLf);
+
+    let mut fifth_arena = [0u8; 1];
+    state.arena = &mut fifth_arena;
+    parse_http_body(&mut state, b"\n", 0);
+    assert_eq!(state.arena_ptr, 0);
+    assert_eq!(state.state, BodyParserStatus::Success);
+    println!("Два чанка по сетевым порциям: ab + cd + e, Success");
 }

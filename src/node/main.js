@@ -17,8 +17,8 @@ const server = net.createServer((c) => {
     var buffer = Buffer.alloc(0);
     const headerData = new Int32Array([0 , 0, 0, 0]),
 	  parserState = new Int32Array([0,0,0,0,0]),
-          // Статус тела, сетевой режим, current_value, arena_ptr.
-          bodyState = new Int32Array([0,0,0,0]);
+          // Статус тела, сетевой режим, current_value, arena_ptr, delimiter_context.
+          bodyState = new Int32Array([0,0,0,0,0]);
     console.log('client connected');
     c.on('data', (d) => {
 	console.log("Data from client");

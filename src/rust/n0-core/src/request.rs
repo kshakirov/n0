@@ -1,5 +1,7 @@
-use crate::body::{parse_http_body, BodyParserState, BodyParserStatus, NetworkInput};
-use crate::header::{parse_http_header, HeaderParserState};
+use crate::body::{
+    parse_http_body, BodyParserState, BodyParserStatus, DelimiterContext, NetworkInput,
+};
+use crate::header::{parse_http_header, ContentType, HeaderParserState};
 
 #[repr(u8)]
 pub enum Phase {
@@ -8,7 +10,8 @@ pub enum Phase {
     Finished = 2,
 }
 
-const CONTENT_LENGTH: usize = 1;
+const CONTENT_LENGTH: usize = 2;
+const CONTENT_TYPE: usize = 1;
 const PHASE: usize = 0;
 const CURRENT_VALUE: usize = 2;
 
@@ -32,6 +35,19 @@ pub fn parse_http_req(
                 body_parser_state.current_value = i_table[CURRENT_VALUE] as usize;
                 //                body_parser_state.arena = [0u8; 10].as_mut_ptr();
                 body_parser_state.arena_ptr = 0;
+                parse_http_body(body_parser_state, req_bytes, r);
+                if body_parser_state.state == BodyParserStatus::Success {
+                    parser_state[PHASE] = i32::from(Phase::Finished as u8);
+                }
+                return;
+            } else if i_table[CONTENT_TYPE] == i32::from(ContentType::TransferEncoding as u8) {
+                parser_state[PHASE] = i32::from(Phase::Body as u8);
+                body_parser_state.state = BodyParserStatus::ReadChunkSize;
+                body_parser_state.networking_input = NetworkInput::NeedMoreData;
+                body_parser_state.current_value = 0;
+                // body_parser_state.arena = [0u8; 10].as_mut_ptr();
+                body_parser_state.arena_ptr = 0;
+                body_parser_state.delimiter_context = DelimiterContext::NoDelimiter;
                 parse_http_body(body_parser_state, req_bytes, r);
                 if body_parser_state.state == BodyParserStatus::Success {
                     parser_state[PHASE] = i32::from(Phase::Finished as u8);
