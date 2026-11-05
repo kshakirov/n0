@@ -145,15 +145,41 @@ fn wirth_http_header_parser_step(
                 && rd.headers.content_length_match < CONTENT_LENGTH.len()
                 && *b == CONTENT_LENGTH[rd.headers.content_length_match]
             {
+                println!(
+                    "CT matches {} byte {} length is {}\n",
+                    rd.headers.content_length_match,
+                    CONTENT_LENGTH[rd.headers.content_length_match] as char,
+                    CONTENT_LENGTH.len()
+                );
+
                 rd.headers.content_length_match += 1;
-            } else if rd.headers.transfer_encoding_match < TRANSFER_ENCODING.len()
+            } else {
+                println!(
+                    "does not matches {} byte {}  failed {}\n",
+                    counter, *b as char, rd.headers.content_header_failed
+                );
+
+                rd.headers.content_length_match = 0;
+                rd.headers.content_header_failed = true;
+            }
+            if !rd.headers.transfer_encoding_failed
+                && rd.headers.transfer_encoding_match < TRANSFER_ENCODING.len()
                 && *b == TRANSFER_ENCODING[rd.headers.transfer_encoding_match]
             {
+                println!(
+                    "TE matches {} byte {} length is {}  \n ",
+                    rd.headers.transfer_encoding_match,
+                    TRANSFER_ENCODING[rd.headers.transfer_encoding_match] as char,
+                    TRANSFER_ENCODING.len()
+                );
                 rd.headers.transfer_encoding_match += 1;
             } else {
-                rd.headers.content_length_match = 0;
+                println!(
+                    "does not matches {} byte {}  failed {}\n",
+                    counter, *b as char, rd.headers.content_header_failed
+                );
+
                 rd.headers.transfer_encoding_match = 0;
-                rd.headers.content_header_failed = true;
                 rd.headers.transfer_encoding_failed = true;
             }
             counter += 1;

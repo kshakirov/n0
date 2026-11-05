@@ -86,7 +86,7 @@ fn main() {
     let (r, state) = parse_http_header(request, &mut header_state);
     assert!(state == HeaderParserState::Success);
     assert!(header_state[0] == 3);
-    assert!(header_state[1] == 0);
+    assert!(header_state[1] == 2);
     assert!(header_state[2] == 0);
     println!("counter is {} at the position  is {}\n", r, buf[r]);
 
