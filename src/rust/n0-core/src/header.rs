@@ -27,7 +27,7 @@ pub enum Method {
 // }
 
 #[repr(u8)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum ContentType {
     NoContent,
     ContentLength,
@@ -42,8 +42,10 @@ struct MethodData {
 struct HeaderData {
     content_length_match: usize,
     transfer_encoding_match: usize,
+    chunked_match: usize,
     content_header_failed: bool,
     transfer_encoding_failed: bool,
+    chunked_failed: bool,
     content_type: ContentType,
     content_length: i32,
 }
@@ -54,6 +56,7 @@ struct RecognizingData {
 
 const CONTENT_LENGTH: &[u8] = b"content-length";
 const TRANSFER_ENCODING: &[u8] = b"transfer-encoding";
+const CHUNKED: &[u8] = b" chunked";
 fn wirth_http_header_parser_step(
     b: &u8,
     state: &mut HeaderParserState,
@@ -175,7 +178,6 @@ fn wirth_http_header_parser_step(
 
         HeaderParserState::HeaderValue => {
             if rd.headers.content_type == ContentType::ContentLength {
-                //println!("{} vs {}", rd.headers.content_length, *b);
                 if *b == 32 {
                     //later we'll deal
                 } else if *b > 47 && *b < 58 || *b == 0 {
@@ -183,6 +185,20 @@ fn wirth_http_header_parser_step(
                 } else {
                     rd.headers.content_type = ContentType::NoContent;
                     rd.headers.content_header_failed = true;
+                }
+            }
+            if rd.headers.content_type == ContentType::TransferEncoding {
+                if !rd.headers.chunked_failed
+                    && rd.headers.chunked_match < CHUNKED.len()
+                    && *b == CHUNKED[rd.headers.chunked_match]
+                {
+                    rd.headers.chunked_match += 1;
+                } else {
+                    rd.headers.transfer_encoding_match = 0;
+                    rd.headers.transfer_encoding_failed = true;
+                    rd.headers.chunked_match = 0;
+                    rd.headers.chunked_failed = true;
+                    rd.headers.content_type = ContentType::NoContent
                 }
             }
             counter += 1;
@@ -290,6 +306,8 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> (usize, H
         headers: HeaderData {
             content_length_match: 0,
             transfer_encoding_match: 0,
+            chunked_match: 0,
+            chunked_failed: false,
             content_header_failed: false,
             transfer_encoding_failed: false,
             content_type: ContentType::NoContent,

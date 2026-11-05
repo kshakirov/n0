@@ -151,4 +151,12 @@ fn main() {
     parse_http_body(&mut state, b"\n", 0);
     assert_eq!(state.arena_ptr, 0);
     assert_eq!(state.state, BodyParserStatus::Success);
+    let mut bad_header_state = [0i32; 4];
+    let bad_request = b"POST /users/123 HTTP/1.1\r\nHost: localhost:9092\r\ntransfer-encoding: chunsked\r\n\r\n3\r\nabc\r\n2\r\nde\r\n0\r\n\r\n";
+
+    let (_, state1) = parse_http_header(bad_request, &mut bad_header_state);
+    assert!(state1 == HeaderParserState::Success);
+    assert!(bad_header_state[0] == Method::POST as i32);
+    assert!(bad_header_state[1] == ContentType::NoContent as i32);
+    assert!(bad_header_state[2] == 0);
 }
