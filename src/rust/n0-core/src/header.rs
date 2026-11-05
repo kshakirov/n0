@@ -12,7 +12,7 @@ pub enum HeaderParserState {
 }
 #[repr(u8)]
 #[derive(PartialEq)]
-enum Method {
+pub enum Method {
     PSTAR,
     GET,
     PUT,

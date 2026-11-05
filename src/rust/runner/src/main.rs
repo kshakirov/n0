@@ -1,6 +1,6 @@
 use n0_core::{
     parse_http_body, parse_http_header, parse_http_req, BodyParserState, BodyParserStatus,
-    ContentType, DelimiterContext, HeaderParserState, NetworkInput,
+    ContentType, DelimiterContext, HeaderParserState, Method, NetworkInput,
 };
 fn main() {
     let _s1   = "GET /users/123 HTTP/1.1\r\nHost: localhost:8080\r\nUser-Agent: SclerotixTest\r\nAccept: */*\r\n\r\n";
@@ -13,10 +13,9 @@ fn main() {
     let mut parser_state: Vec<i32> = [0, 0, 0, 0, 0].to_vec();
     let (r, state) = parse_http_header(&mut buf, &mut header_state);
     assert!(state == HeaderParserState::Success);
-    assert!(header_state[0] == 3);
-    assert!(header_state[1] == 1);
+    assert!(header_state[0] == Method::POST as i32);
+    assert!(header_state[1] == ContentType::ContentLength as i32);
     assert!(header_state[2] == 10);
-    println!("counter is {} at the position  is {}\n", r, buf[r]);
     assert!(buf[r] == 48);
 
     let mut arena = vec![0u8; 10];
@@ -55,7 +54,6 @@ fn main() {
         &mut parser_state,
         &mut chunked_state,
     );
-    println!("Порция {}: состояние {:?}", 0, chunked_state);
     assert_eq!(&chunked_state.arena[..chunked_state.arena_ptr], b"0123");
     let mut second_arena = [0u8; 3];
     chunked_state.arena = &mut second_arena;
@@ -65,7 +63,6 @@ fn main() {
         &mut parser_state,
         &mut chunked_state,
     );
-    println!("Порция {}: состояние {:?}", 1, chunked_state);
     assert_eq!(&chunked_state.arena[..chunked_state.arena_ptr], b"456");
     let mut third_arena = [0u8; 3];
     chunked_state.arena = &mut third_arena;
@@ -77,18 +74,16 @@ fn main() {
     );
     assert!(parser_state[0] == 2);
     assert_eq!(&chunked_state.arena[..chunked_state.arena_ptr], b"789");
-    println!("Finished :Порция {}: состояние {:?} ", 2, chunked_state);
 
     // Один чанк с телом abc и завершающий нулевой чанк.
     let chunk = b"3\r\nabc\r\n0\r\n\r\n";
     let request = b"POST /users/123 HTTP/1.1\r\nHost: localhost:9092\r\ntransfer-encoding: chunked\r\n\r\n3\r\nabc\r\n2\r\nde\r\n0\r\n\r\n";
 
-    let (r, state) = parse_http_header(request, &mut header_state);
+    let (_, state) = parse_http_header(request, &mut header_state);
     assert!(state == HeaderParserState::Success);
-    assert!(header_state[0] == 3);
-    assert!(header_state[1] == 2);
+    assert!(header_state[0] == Method::POST as i32);
+    assert!(header_state[1] == ContentType::TransferEncoding as i32);
     assert!(header_state[2] == 0);
-    println!("counter is {} at the position  is {}\n", r, buf[r]);
 
     let mut arena = [0u8; 3];
     let mut state = BodyParserState {
@@ -100,7 +95,7 @@ fn main() {
         delimiter_context: DelimiterContext::NoDelimiter,
     };
     parse_http_body(&mut state, chunk, 0);
-    println!("Один чанк: {:?}", state);
+
     assert_eq!(state.state, BodyParserStatus::Success);
     assert_eq!(&state.arena[..state.arena_ptr], b"abc");
 
@@ -118,7 +113,6 @@ fn main() {
     parse_http_body(&mut state, chunks, 0);
     assert_eq!(state.state, BodyParserStatus::Success);
     assert_eq!(&state.arena[..state.arena_ptr], b"abcde");
-    println!("Два чанка: abcde, Success");
 
     // Тот же вход по сетевым порциям. Каждая получает свежую арену.
     let mut first_arena = [0u8; 3];
@@ -157,5 +151,4 @@ fn main() {
     parse_http_body(&mut state, b"\n", 0);
     assert_eq!(state.arena_ptr, 0);
     assert_eq!(state.state, BodyParserStatus::Success);
-    println!("Два чанка по сетевым порциям: ab + cd + e, Success");
 }
