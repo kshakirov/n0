@@ -204,13 +204,12 @@ pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counte
             _ => {}
         }
         next_state(state);
-    }
-
-    if state.state == BodyParserStatus::Success {
-        //println!("finished");
-        //        break;
-    } else {
-        //println!("status is not finished\n");
+        if state.state == BodyParserStatus::Success {
+            //println!("finished");
+            break;
+        } else {
+            //println!("status is not finished\n");
+        }
     }
 }
 
