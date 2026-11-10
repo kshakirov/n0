@@ -3,8 +3,7 @@ mod header;
 mod request;
 
 pub use body::{
-    parse_http_body, parse_http_body_step, BodyParserState, BodyParserStatus, DelimiterContext,
-    NetworkInput,
+    parse_http_body, BodyParserState, BodyParserStatus, DelimiterContext, NetworkInput,
 };
 pub use header::{parse_http_header, ContentType, HeaderParserState, Method};
 pub use request::{parse_http_req, Phase};

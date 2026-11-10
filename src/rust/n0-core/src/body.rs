@@ -131,77 +131,87 @@ fn next_state(state: &mut BodyParserState) {
     }
 }
 
-pub fn parse_http_body_step<'a>(state: &mut BodyParserState<'a>, b: &u8) {
-    //let n_state: BodyParserState = next_state(state, network_input, current_value);
+pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counter: usize) {
+    state.arena_ptr = 0;
+    for b in &bytes[counter..] {
+        //        parse_http_body_step(state, b);
 
-    match state.state {
-        BodyParserStatus::Success => state.state = BodyParserStatus::Success,
-        BodyParserStatus::Error => {
-            state.state = BodyParserStatus::Error;
-        }
-        BodyParserStatus::ReadFixedData => {
-            state.current_value -= 1;
-            state.state = BodyParserStatus::ReadFixedData;
-            state.networking_input = NetworkInput::ReadingFixedData;
-            state.arena[state.arena_ptr] = *b;
-            state.arena_ptr += 1;
-        }
-        BodyParserStatus::ReadChunkSize => {
-            if *b == b'\r' {
-                state.networking_input = if state.current_value == 0 {
-                    NetworkInput::ZeroChunkSizeTerminated
-                } else {
-                    NetworkInput::ChunkSizeTerminated
-                };
-            } else if *b >= b'0' && *b <= b'd' {
-                let v = from_ascii_to_hex(*b);
-                if v > -1 {
-                    state.current_value = 16 * state.current_value + (v as usize);
-                    state.networking_input = NetworkInput::ChunkSizeDigitAccepted;
+        match state.state {
+            BodyParserStatus::Success => state.state = BodyParserStatus::Success,
+            BodyParserStatus::Error => {
+                state.state = BodyParserStatus::Error;
+            }
+            BodyParserStatus::ReadFixedData => {
+                state.current_value -= 1;
+                state.state = BodyParserStatus::ReadFixedData;
+                state.networking_input = NetworkInput::ReadingFixedData;
+                state.arena[state.arena_ptr] = *b;
+                state.arena_ptr += 1;
+            }
+            BodyParserStatus::ReadChunkSize => {
+                if *b == b'\r' {
+                    state.networking_input = if state.current_value == 0 {
+                        NetworkInput::ZeroChunkSizeTerminated
+                    } else {
+                        NetworkInput::ChunkSizeTerminated
+                    };
+                } else if *b >= b'0' && *b <= b'd' {
+                    let v = from_ascii_to_hex(*b);
+                    if v > -1 {
+                        state.current_value = 16 * state.current_value + (v as usize);
+                        state.networking_input = NetworkInput::ChunkSizeDigitAccepted;
+                    } else {
+                        state.state = BodyParserStatus::Error;
+                    }
                 } else {
                     state.state = BodyParserStatus::Error;
                 }
-            } else {
-                state.state = BodyParserStatus::Error;
             }
-        }
-        BodyParserStatus::ReadChunkData => {
-            state.current_value -= 1;
-            state.state = BodyParserStatus::ReadChunkData;
-            state.networking_input = NetworkInput::ChunkDataByteAccepted;
-            state.arena[state.arena_ptr] = *b;
-            state.arena_ptr += 1;
-        }
+            BodyParserStatus::ReadChunkData => {
+                state.current_value -= 1;
+                state.state = BodyParserStatus::ReadChunkData;
+                state.networking_input = NetworkInput::ChunkDataByteAccepted;
+                state.arena[state.arena_ptr] = *b;
+                state.arena_ptr += 1;
+            }
 
-        BodyParserStatus::ExpectChunkCr if *b == 13 => {
-            state.networking_input = NetworkInput::CrAccepted;
-        }
-        BodyParserStatus::ExpectChunkCr => {
-            state.networking_input = NetworkInput::InvalidInput;
-        }
+            BodyParserStatus::ExpectChunkCr if *b == 13 => {
+                state.networking_input = NetworkInput::CrAccepted;
+            }
+            BodyParserStatus::ExpectChunkCr => {
+                state.networking_input = NetworkInput::InvalidInput;
+            }
 
-        BodyParserStatus::ExpectChunkLf if *b == 10 => {
-            state.networking_input = NetworkInput::LfAccepted;
-        }
-        BodyParserStatus::ExpectChunkLf => {
-            state.networking_input = NetworkInput::InvalidInput;
-        }
-        BodyParserStatus::ExpectFinalCr if *b == 13 => {
-            state.networking_input = NetworkInput::CrAccepted;
-        }
-        BodyParserStatus::ExpectFinalCr => {
-            state.networking_input = NetworkInput::InvalidInput;
-        }
-        BodyParserStatus::ExpectFinalLf if *b == 10 => {
-            state.networking_input = NetworkInput::LfAccepted;
-        }
-        BodyParserStatus::ExpectFinalLf => {
-            state.networking_input = NetworkInput::InvalidInput;
-        }
+            BodyParserStatus::ExpectChunkLf if *b == 10 => {
+                state.networking_input = NetworkInput::LfAccepted;
+            }
+            BodyParserStatus::ExpectChunkLf => {
+                state.networking_input = NetworkInput::InvalidInput;
+            }
+            BodyParserStatus::ExpectFinalCr if *b == 13 => {
+                state.networking_input = NetworkInput::CrAccepted;
+            }
+            BodyParserStatus::ExpectFinalCr => {
+                state.networking_input = NetworkInput::InvalidInput;
+            }
+            BodyParserStatus::ExpectFinalLf if *b == 10 => {
+                state.networking_input = NetworkInput::LfAccepted;
+            }
+            BodyParserStatus::ExpectFinalLf => {
+                state.networking_input = NetworkInput::InvalidInput;
+            }
 
-        _ => {}
+            _ => {}
+        }
+        next_state(state);
     }
-    next_state(state);
+
+    if state.state == BodyParserStatus::Success {
+        //println!("finished");
+        //        break;
+    } else {
+        //println!("status is not finished\n");
+    }
 }
 
 fn from_ascii_to_hex(c: u8) -> i32 {
@@ -216,17 +226,4 @@ fn from_ascii_to_hex(c: u8) -> i32 {
         v = -1
     };
     return v;
-}
-
-pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counter: usize) {
-    state.arena_ptr = 0;
-    for b in &bytes[counter..] {
-        parse_http_body_step(state, b);
-        if state.state == BodyParserStatus::Success {
-            //println!("finished");
-            break;
-        } else {
-            //println!("status is not finished\n");
-        }
-    }
 }
