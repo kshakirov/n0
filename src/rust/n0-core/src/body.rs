@@ -133,9 +133,11 @@ fn next_state(state: &mut BodyParserState) {
 
 pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counter: usize) {
     state.arena_ptr = 0;
-    for b in &bytes[counter..] {
+    let payload_length = (&bytes[counter..]).len();
+    let mut i = 0;
+    while i < payload_length {
         //        parse_http_body_step(state, b);
-
+        let b = &bytes[counter..][i];
         match state.state {
             BodyParserStatus::Success => state.state = BodyParserStatus::Success,
             BodyParserStatus::Error => {
@@ -168,11 +170,24 @@ pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counte
                 }
             }
             BodyParserStatus::ReadChunkData => {
-                state.current_value -= 1;
-                state.state = BodyParserStatus::ReadChunkData;
-                state.networking_input = NetworkInput::ChunkDataByteAccepted;
-                state.arena[state.arena_ptr] = *b;
-                state.arena_ptr += 1;
+                if state.current_value < (payload_length - i) {
+                    state.arena[state.arena_ptr..(state.arena_ptr + state.current_value)]
+                        .copy_from_slice(&bytes[counter + i..counter + i + state.current_value]);
+                    state.state = BodyParserStatus::ReadChunkData;
+                    state.networking_input = NetworkInput::ChunkDataByteAccepted;
+                    state.arena_ptr += state.current_value;
+                    i = i + state.current_value - 1;
+                    state.current_value = 0;
+                } else {
+                    state.arena[state.arena_ptr..(state.arena_ptr + payload_length - i)]
+                        .copy_from_slice(&bytes[counter + i..counter + payload_length]);
+                    state.current_value = state.current_value - (payload_length - i);
+                    state.state = BodyParserStatus::ReadChunkData;
+                    state.networking_input = NetworkInput::ChunkDataByteAccepted;
+
+                    state.arena_ptr += payload_length - i;
+                    i = payload_length - 1;
+                }
             }
 
             BodyParserStatus::ExpectChunkCr if *b == 13 => {
@@ -203,6 +218,7 @@ pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counte
 
             _ => {}
         }
+        i += 1;
         next_state(state);
         if state.state == BodyParserStatus::Success {
             //println!("finished");
