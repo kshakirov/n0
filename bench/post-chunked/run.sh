@@ -23,6 +23,8 @@ done
     git rev-parse HEAD
     node --version
     wrk --version 2>&1 || true
-    printf 'variant=%s body_bytes=262144 http_chunks=256 chunk_bytes=1024 connections=10 threads=2 duration=10s keepalive=false\n' "$variant"
+    printf 'variant=%s body_bytes=262144 connections=10 threads=2 duration=10s keepalive=false\n' "$variant"
 } > "$result_dir/metadata.txt"
-wrk -t2 -c10 -d10s --latency -s bench/post-chunked/request.lua "http://127.0.0.1:$port/upload" | tee "$result_dir/result.txt"
+request_script="${REQUEST_SCRIPT:-bench/post-chunked/request.lua}"
+printf 'request_script=%s\n' "$request_script" >> "$result_dir/metadata.txt"
+wrk -t2 -c10 -d10s --latency -s "$request_script" "http://127.0.0.1:$port/upload" | tee "$result_dir/result.txt"
