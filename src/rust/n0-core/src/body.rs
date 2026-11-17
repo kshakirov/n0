@@ -144,11 +144,21 @@ pub fn parse_http_body<'a>(state: &mut BodyParserState<'a>, bytes: &[u8], counte
                 state.state = BodyParserStatus::Error;
             }
             BodyParserStatus::ReadFixedData => {
-                state.current_value -= 1;
+                let read_bytes;
+                if state.current_value < payload_length - i {
+                    read_bytes = state.current_value;
+                    state.current_value = 0;
+                } else {
+                    read_bytes = payload_length - i;
+                    state.current_value = state.current_value - read_bytes;
+                }
+
                 state.state = BodyParserStatus::ReadFixedData;
                 state.networking_input = NetworkInput::ReadingFixedData;
-                state.arena[state.arena_ptr] = *b;
-                state.arena_ptr += 1;
+                state.arena[state.arena_ptr..(state.arena_ptr + read_bytes)]
+                    .copy_from_slice(&bytes[counter + i..counter + i + read_bytes]);
+                state.arena_ptr += read_bytes;
+                i = i + read_bytes - 1;
             }
             BodyParserStatus::ReadChunkSize => {
                 if *b == b'\r' {
