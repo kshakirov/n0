@@ -1,7 +1,8 @@
 use n0_core::{
-    parse_http_body, parse_http_header, parse_http_req, BodyParserState, BodyParserStatus,
-    ContentType, DelimiterContext, HeaderParserState, Method, NetworkInput,
+    brzozowski_router, parse_http_body, parse_http_header, parse_http_req, BodyParserState,
+    BodyParserStatus, ContentType, DelimiterContext, HeaderParserState, Method, NetworkInput,
 };
+
 fn main() {
     let _s1   = "GET /users/123 HTTP/1.1\r\nHost: localhost:8080\r\nUser-Agent: SclerotixTest\r\nAccept: */*\r\n\r\n";
     let _s = "GET /users/123 HTTP/1.1\r\n\r\n";
@@ -159,4 +160,10 @@ fn main() {
     assert!(bad_header_state[0] == Method::POST as i32);
     assert!(bad_header_state[1] == ContentType::NoContent as i32);
     assert!(bad_header_state[2] == 0);
+    let routes: Vec<Vec<u8>> = vec![
+        b"/users/home/delete".to_vec(),
+        b"/mail/user/{id}".to_vec(),
+        b"/book/author/id".to_vec(),
+    ];
+    brzozowski_router(routes);
 }

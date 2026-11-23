@@ -1,13 +1,14 @@
 mod body;
 mod header;
 mod request;
-
+mod router;
 pub use body::{
     parse_http_body, BodyParserState, BodyParserStatus, DelimiterContext, NetworkInput,
 };
 pub use header::{parse_http_header, ContentType, HeaderParserState, Method};
 pub use request::{parse_http_req, Phase};
 
+pub use router::brzozowski_router;
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }

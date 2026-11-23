@@ -45,6 +45,8 @@ struct HeaderData {
     chunked_match: usize,
     content_header_failed: bool,
     transfer_encoding_failed: bool,
+    content_header_found: bool,
+    transfer_encoding_found: bool,
     chunked_failed: bool,
     content_type: ContentType,
     content_length: i32,
@@ -125,9 +127,11 @@ fn wirth_http_header_parser_step(
         HeaderParserState::HeaderName if *b == 58 => {
             if !rd.headers.content_header_failed && rd.headers.content_length_match == 14 {
                 rd.headers.content_type = ContentType::ContentLength;
+                rd.headers.content_header_found = true;
             }
             if !rd.headers.transfer_encoding_failed && rd.headers.transfer_encoding_match == 17 {
                 rd.headers.content_type = ContentType::TransferEncoding;
+                rd.headers.transfer_encoding_found = true;
             }
             rd.headers.content_length_match = 0;
             rd.headers.transfer_encoding_match = 0;
@@ -144,7 +148,8 @@ fn wirth_http_header_parser_step(
             return counter;
         }
         HeaderParserState::HeaderName => {
-            if !rd.headers.content_header_failed
+            if !rd.headers.content_header_found
+                && !rd.headers.content_header_failed
                 && rd.headers.content_length_match < CONTENT_LENGTH.len()
                 && *b == CONTENT_LENGTH[rd.headers.content_length_match]
             {
@@ -153,7 +158,8 @@ fn wirth_http_header_parser_step(
                 rd.headers.content_length_match = 0;
                 rd.headers.content_header_failed = true;
             }
-            if !rd.headers.transfer_encoding_failed
+            if !rd.headers.transfer_encoding_found
+                && !rd.headers.transfer_encoding_failed
                 && rd.headers.transfer_encoding_match < TRANSFER_ENCODING.len()
                 && *b == TRANSFER_ENCODING[rd.headers.transfer_encoding_match]
             {
@@ -173,11 +179,19 @@ fn wirth_http_header_parser_step(
             *state = HeaderParserState::CRLF;
             rd.headers.content_length_match = 0;
             rd.headers.transfer_encoding_match = 0;
+            if rd.headers.content_header_found {
+                rd.headers.content_header_found = false
+            }
+            if rd.headers.transfer_encoding_found {
+                rd.headers.transfer_encoding_found = false
+            }
             return counter;
         }
 
         HeaderParserState::HeaderValue => {
-            if rd.headers.content_type == ContentType::ContentLength {
+            if rd.headers.content_type == ContentType::ContentLength
+                && rd.headers.content_header_found
+            {
                 if *b == 32 {
                     //later we'll deal
                 } else if *b > 47 && *b < 58 || *b == 0 {
@@ -185,9 +199,12 @@ fn wirth_http_header_parser_step(
                 } else {
                     rd.headers.content_type = ContentType::NoContent;
                     rd.headers.content_header_failed = true;
+                    rd.headers.content_header_found = false;
                 }
             }
-            if rd.headers.content_type == ContentType::TransferEncoding {
+            if rd.headers.content_type == ContentType::TransferEncoding
+                && rd.headers.transfer_encoding_found
+            {
                 if !rd.headers.chunked_failed
                     && rd.headers.chunked_match < CHUNKED.len()
                     && *b == CHUNKED[rd.headers.chunked_match]
@@ -198,7 +215,8 @@ fn wirth_http_header_parser_step(
                     rd.headers.transfer_encoding_failed = true;
                     rd.headers.chunked_match = 0;
                     rd.headers.chunked_failed = true;
-                    rd.headers.content_type = ContentType::NoContent
+                    rd.headers.content_type = ContentType::NoContent;
+                    rd.headers.transfer_encoding_found = false;
                 }
             }
             counter += 1;
@@ -310,6 +328,8 @@ pub fn parse_http_header<'a>(buffer: &[u8], i_table: &'a mut [i32]) -> (usize, H
             chunked_failed: false,
             content_header_failed: false,
             transfer_encoding_failed: false,
+            content_header_found: false,
+            transfer_encoding_found: false,
             content_type: ContentType::NoContent,
             content_length: 0,
         },
