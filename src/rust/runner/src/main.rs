@@ -163,7 +163,20 @@ fn main() {
     let routes: Vec<Vec<u8>> = vec![
         b"/users/home/delete".to_vec(),
         b"/mail/user/{id}".to_vec(),
-        b"/book/author/id".to_vec(),
+        b"/book/author/{ids}".to_vec(),
     ];
-    brzozowski_router(routes);
+    let p_len_1 = routes.get(1).unwrap().len();
+    let p_len_2 = routes.get(2).unwrap().len();
+    let compiled_routes = brzozowski_router(routes);
+    assert!(compiled_routes.len() == 3);
+    println!(
+        "{} - {}, {} - {}\n",
+        compiled_routes.get(1).unwrap().len(),
+        p_len_1,
+        compiled_routes.get(2).unwrap().len(),
+        p_len_2
+    );
+    assert!(compiled_routes.get(1).unwrap().len() == p_len_1 + 128 - 2);
+    assert!(compiled_routes.get(2).unwrap().len() == p_len_2 + 128 - 3);
+    assert!(*compiled_routes.get(2).unwrap().get(1).unwrap() == (p_len_2 + 128 - 3) as u8);
 }
